@@ -1,6 +1,6 @@
 @tool
-class_name DotVoiceSourceMicrophone
-extends DotVoiceSource
+class_name GSVoiceSourceMicrophone
+extends GSVoiceSource
 
 ## The real microphone, through an [AudioEffectCapture] on its own bus.
 ##
@@ -9,7 +9,7 @@ extends DotVoiceSource
 const CHANNEL := "voice.mic"
 
 ## Bus the capture effect is installed on. Created if it does not exist.
-var bus_name: StringName = &"DotVoiceCapture"
+var bus_name: StringName = &"GSVoiceCapture"
 
 ## Seconds the capture effect buffers before discarding.
 ##
@@ -32,7 +32,7 @@ var host: Node = null
 
 ## A stream played into the capture bus instead of the microphone; null is the microphone.
 ##
-## For a device probe on a driver with no input: the capture effect, resampling and encoder run as for a person. A bot speaks through [DotVoiceSourceBuffer].
+## For a device probe on a driver with no input: the capture effect, resampling and encoder run as for a person. A bot speaks through [GSVoiceSourceBuffer].
 var input_stream: AudioStream = null
 
 
@@ -44,10 +44,10 @@ func _init(p_host: Node = null, p_sample_rate: int = 24000) -> void:
 ## Whether this build can open a microphone at all.
 ##
 ## Headless has no audio driver, and any build can have input disabled in project settings.
-static func is_supported() -> DotResult:
+static func is_supported() -> GSResult:
 	if not ProjectSettings.get_setting("audio/driver/enable_input", false):
-		return DotResult.fail(
-			DotError.CODE_UNSUPPORTED,
+		return GSResult.fail(
+			GSError.CODE_UNSUPPORTED,
 			"Audio input is disabled in this project's settings.",
 			"set audio/driver/enable_input = true; it is read when the audio driver "
 			+ "starts, so changing it at runtime does nothing"
@@ -59,38 +59,38 @@ static func is_supported() -> DotResult:
 	if AudioServer.has_method("get_driver_name"):
 		var driver := str(AudioServer.call("get_driver_name"))
 		if driver == "Dummy":
-			return DotResult.fail(
-				DotError.CODE_UNSUPPORTED,
+			return GSResult.fail(
+				GSError.CODE_UNSUPPORTED,
 				"This process has no audio device.",
 				"the audio driver is Dummy, which is what a headless run, CI and "
 				+ "--audio-driver Dummy all give you"
 			)
 
 	if AudioServer.get_mix_rate() <= 0.0:
-		return DotResult.fail(
-			DotError.CODE_UNSUPPORTED, "There is no audio device on this machine."
+		return GSResult.fail(
+			GSError.CODE_UNSUPPORTED, "There is no audio device on this machine."
 		)
 
 	if AudioServer.get_input_device_list().is_empty():
-		return DotResult.fail(
-			DotError.CODE_UNSUPPORTED,
+		return GSResult.fail(
+			GSError.CODE_UNSUPPORTED,
 			"This machine reports no audio input devices."
 		)
 
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
-func start() -> DotResult:
+func start() -> GSResult:
 	if _running:
-		return DotResult.success(true)
+		return GSResult.success(true)
 
 	var supported := is_supported()
 	if not supported.ok:
 		return supported
 
 	if host == null:
-		return DotResult.fail(
-			DotError.CODE_STATE,
+		return GSResult.fail(
+			GSError.CODE_STATE,
 			"A microphone source needs a host node to put its player under."
 		)
 
@@ -102,7 +102,7 @@ func start() -> DotResult:
 		_bus_index = AudioServer.bus_count
 		# bus_count, not add_bus(): on web add_bus() puts the new bus ahead of Master and unplugs it
 		# from the speakers, silencing the game on the first push-to-talk (see
-		# DotAudioMixer._create_bus).
+		# GSAudioMixer._create_bus).
 		AudioServer.bus_count = _bus_index + 1
 		AudioServer.set_bus_name(_bus_index, bus_name)
 
@@ -125,7 +125,7 @@ func start() -> DotResult:
 	_capture.clear_buffer()
 
 	_player = AudioStreamPlayer.new()
-	_player.name = "DotVoiceMicrophone"
+	_player.name = "GSVoiceMicrophone"
 	_player.stream = input_stream if input_stream != null else AudioStreamMicrophone.new()
 	_player.bus = bus_name
 	# A stream, never a sample: a browser build plays samples by default, and a microphone
@@ -136,11 +136,11 @@ func start() -> DotResult:
 
 	_running = true
 
-	DotLog.info(CHANNEL, "microphone open", {
+	GSLog.info(CHANNEL, "microphone open", {
 		"mix_rate": _mix_rate, "wire_rate": sample_rate, "bus": String(bus_name)
 	})
 
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
 func stop() -> void:
@@ -156,7 +156,7 @@ func stop() -> void:
 	if _capture != null:
 		_capture.clear_buffer()
 
-	DotLog.info(CHANNEL, "microphone closed")
+	GSLog.info(CHANNEL, "microphone closed")
 
 
 func is_running() -> bool:
@@ -204,7 +204,7 @@ func _drain() -> void:
 		return
 
 	_spill.append_array(
-		DotVoiceSource.resample(DotVoiceSource.to_mono(frames), _mix_rate, sample_rate)
+		GSVoiceSource.resample(GSVoiceSource.to_mono(frames), _mix_rate, sample_rate)
 	)
 
 

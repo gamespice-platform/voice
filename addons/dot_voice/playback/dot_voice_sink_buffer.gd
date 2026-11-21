@@ -1,6 +1,6 @@
 @tool
-class_name DotVoiceSinkBuffer
-extends DotVoiceSink
+class_name GSVoiceSinkBuffer
+extends GSVoiceSink
 
 ## A sink that keeps what it was given, so a test can assert on what a listener heard.
 
@@ -13,9 +13,9 @@ var max_samples: int = 0
 var _running: bool = false
 
 
-func start() -> DotResult:
+func start() -> GSResult:
 	_running = true
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
 func stop() -> void:
@@ -45,14 +45,14 @@ func clear() -> void:
 
 ## Loudness of everything written, which is what "did they hear anything" means.
 func rms() -> float:
-	return DotVoiceGate.rms(samples)
+	return GSVoiceGate.rms(samples)
 
 
 ## Loudness of the last [param count] samples, for asserting that audio stopped.
 func recent_rms(count: int) -> float:
 	if samples.size() <= count:
 		return rms()
-	return DotVoiceGate.rms(samples.slice(samples.size() - count))
+	return GSVoiceGate.rms(samples.slice(samples.size() - count))
 
 
 ## Largest absolute sample, for asserting nothing clipped.

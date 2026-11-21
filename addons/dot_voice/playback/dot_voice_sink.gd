@@ -1,15 +1,15 @@
 @tool
-class_name DotVoiceSink
+class_name GSVoiceSink
 extends RefCounted
 
-## Where decoded audio goes: [DotVoiceSinkPlayer] pushes into an [AudioStreamGenerator], [DotVoiceSinkBuffer] keeps samples for tests.
+## Where decoded audio goes: [GSVoiceSinkPlayer] pushes into an [AudioStreamGenerator], [GSVoiceSinkBuffer] keeps samples for tests.
 
 ## Samples per second this sink expects.
 var sample_rate: int = 24000
 
 
-func start() -> DotResult:
-	return DotResult.success(true)
+func start() -> GSResult:
+	return GSResult.success(true)
 
 
 func stop() -> void:

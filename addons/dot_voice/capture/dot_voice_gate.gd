@@ -1,5 +1,5 @@
 @tool
-class_name DotVoiceGate
+class_name GSVoiceGate
 extends RefCounted
 
 ## Decides whether a frame goes on the wire: push-to-talk (a host boolean, the default) or voice activation.

@@ -19,19 +19,19 @@ GameSpice Core is the only dependency. [GameSpice Moderation](https://github.com
 | Wire | A ten-byte header carrying speaker, sequence, frame length, channel and codec. Every field is bounds-checked. |
 | Playback | A jitter buffer per speaker that reorders, drops duplicates and fades over a lost frame. |
 | Routing | All, team, proximity, or a filter you write, decided on the server. |
-| On and off | `sv_voice_enable` and `sv_voice_mode` server cvars (`DotVoiceRouter.bind_cvars`), enforced on the relay. |
+| On and off | `sv_voice_enable` and `sv_voice_mode` server cvars (`GSVoiceRouter.bind_cvars`), enforced on the relay. |
 | Browser | Works in a web export. The microphone is asked for on the first press of the talk key. |
 | Muting | A moderator's mute is enforced on the server; a player's own mute list is applied on their machine. |
 
 ## Things worth knowing
 
 - **Nothing opens a microphone on its own.** Call `update_talk(held)` every frame. The first press of the talk key opens the microphone, which is the player agreeing, and in a browser is when the permission prompt appears.
-- **Both ends must agree on the format**: sample rate, frame length and codec. `DotVoiceConfig.format_fingerprint()` is one number to exchange at handshake.
-- **Devices sit behind an interface.** `DotVoiceSource` and `DotVoiceSink` have a real and a buffer implementation, so the tests run the whole path without an audio device.
+- **Both ends must agree on the format**: sample rate, frame length and codec. `GSVoiceConfig.format_fingerprint()` is one number to exchange at handshake.
+- **Devices sit behind an interface.** `GSVoiceSource` and `GSVoiceSink` have a real and a buffer implementation, so the tests run the whole path without an audio device.
 
 ## Settings
 
-`DotVoiceConfig` holds them. Defaults:
+`GSVoiceConfig` holds them. Defaults:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -51,11 +51,11 @@ GameSpice Core is the only dependency. [GameSpice Moderation](https://github.com
 
 | To change | Where |
 | --- | --- |
-| Where bytes go | `DotVoiceManager.send_fn`, `DotVoiceRouter.send_fn` |
-| Where audio comes from | A `DotVoiceSource` subclass |
-| Where audio goes | A `DotVoiceSink` subclass, or `DotVoiceManager.sink_factory` |
-| The codec | A `DotVoiceCodec` subclass plus `DotVoiceCodec.register` |
-| Who hears whom | `DotVoiceRouter.team_fn`, `position_fn`, `can_hear_fn`, `listener_filter` |
+| Where bytes go | `GSVoiceManager.send_fn`, `GSVoiceRouter.send_fn` |
+| Where audio comes from | A `GSVoiceSource` subclass |
+| Where audio goes | A `GSVoiceSink` subclass, or `GSVoiceManager.sink_factory` |
+| The codec | A `GSVoiceCodec` subclass plus `GSVoiceCodec.register` |
+| Who hears whom | `GSVoiceRouter.team_fn`, `position_fn`, `can_hear_fn`, `listener_filter` |
 | Who may be heard at all | Anything with `is_voice_muted(peer)` registered as `dot_mute_source` |
 
 ## Not included

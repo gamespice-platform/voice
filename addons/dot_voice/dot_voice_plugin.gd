@@ -8,8 +8,8 @@ extends EditorPlugin
 const _ICON := "res://addons/dot_voice/icon_placeholder.svg"
 
 const _TYPES := [
-	["DotVoiceManager", "Node", "res://addons/dot_voice/runtime/dot_voice_manager.gd"],
-	["DotVoiceRouter", "Node", "res://addons/dot_voice/runtime/dot_voice_router.gd"],
+	["GSVoiceManager", "Node", "res://addons/dot_voice/runtime/dot_voice_manager.gd"],
+	["GSVoiceRouter", "Node", "res://addons/dot_voice/runtime/dot_voice_router.gd"],
 ]
 
 

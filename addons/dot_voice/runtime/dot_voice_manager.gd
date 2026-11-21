@@ -1,5 +1,5 @@
 @tool
-class_name DotVoiceManager
+class_name GSVoiceManager
 extends Node
 
 ## The node a game adds: captures, encodes, sends, receives, decodes and plays (usage in docs/design.md).
@@ -34,7 +34,7 @@ signal frame_sent(bytes: int)
 signal speaker_changed(speaker: int, speaking: bool)
 
 ## Capture could not be started or had to stop.
-signal capture_failed(error: DotError)
+signal capture_failed(error: GSError)
 
 ## The server turned voice on or off ([method set_server_enabled]). A HUD hides its
 ## microphone and a menu its voice rows on false.
@@ -42,15 +42,15 @@ signal server_enabled_changed(enabled: bool)
 
 @export_group("Configuration")
 
-## Voice settings. A default [DotVoiceConfig] is created if unset.
-@export var config: DotVoiceConfig = null
+## Voice settings. A default [GSVoiceConfig] is created if unset.
+@export var config: GSVoiceConfig = null
 
 ## Path to a JSON config file layered over [member config]'s defaults.
 @export var config_file: String = "user://dot_voice.json"
 
 @export_group("Service")
 
-## Publish this manager in [DotRegistry] so a HUD can find it without a scene path.
+## Publish this manager in [GSRegistry] so a HUD can find it without a scene path.
 @export var register_service: bool = true
 
 ## Suffix for the registry name, so a listen server running both halves in one process
@@ -60,7 +60,7 @@ signal server_enabled_changed(enabled: bool)
 @export_group("Playback")
 
 ## Where per-speaker playback nodes are added. Defaults to a child of this node.
-@export var playback_root_ref: DotNodeRef = null
+@export var playback_root_ref: GSNodeRef = null
 
 ## Play voices positioned in the world rather than flat.
 @export var positional_playback: bool = false
@@ -70,11 +70,11 @@ var send_fn: Callable = Callable()
 
 ## Where captured samples come from. Defaults to a real microphone on [method start_capture].
 ##
-## Assign a [DotVoiceSourceBuffer] for a bot, a test, or playing a recording in.
-var source: DotVoiceSource = null
+## Assign a [GSVoiceSourceBuffer] for a bot, a test, or playing a recording in.
+var source: GSVoiceSource = null
 
-## Builds the sink for a speaker; defaults to a [DotVoiceSinkPlayer].
-## Assign to route audio elsewhere (a recorder, a game mixer, a [DotVoiceSinkBuffer] in a test).
+## Builds the sink for a speaker; defaults to a [GSVoiceSinkPlayer].
+## Assign to route audio elsewhere (a recorder, a game mixer, a [GSVoiceSinkBuffer] in a test).
 var sink_factory: Callable = Callable()
 
 ## Where a speaker is, for [member positional_playback]: [code]func(speaker: int) -> Variant[/code], a Vector3 or null.
@@ -84,7 +84,7 @@ var speaker_position_fn: Callable = Callable()
 
 ## Whether the server lets anybody talk. Off: nothing is captured or sent, what arrives is
 ## dropped, and [signal server_enabled_changed] tells a HUD to hide its key. The router
-## enforces it regardless ([member DotVoiceRouter.enabled]); this is the client's half.
+## enforces it regardless ([member GSVoiceRouter.enabled]); this is the client's half.
 var server_enabled: bool = true
 
 ## Open microphone instead of push to talk: the gate opens on loudness. The player's
@@ -96,12 +96,12 @@ var playback_bus: StringName = VOICE_BUS
 
 ## Speakers this client has chosen not to hear.
 ##
-## A preference applied on the listener's machine; a moderator's mute is [DotVoiceRouter]'s, because a client-applied mute can simply not be applied.
+## A preference applied on the listener's machine; a moderator's mute is [GSVoiceRouter]'s, because a client-applied mute can simply not be applied.
 var local_mutes: Dictionary = {}
 
 ## Speakers this client has gagged: it stops hearing them, and nothing else changes.
 ## Separate from [member local_mutes] so a gag toggled by looking cannot undo a mute the
-## player made with `sm`, and the reverse. See [DotVoiceLookMute].
+## player made with `sm`, and the reverse. See [GSVoiceLookMute].
 var gagged: Dictionary = {}
 
 ## Every speaker starts gagged until the listener un-gags them. The server's
@@ -110,7 +110,7 @@ var gag_default: bool = false
 var ungagged: Dictionary = {}
 
 ## The gate. Exposed so a HUD can read its level for a meter.
-var gate: DotVoiceGate = null
+var gate: GSVoiceGate = null
 
 ## Diagnostics.
 var frames_captured: int = 0
@@ -122,15 +122,15 @@ var bytes_received: int = 0
 var _capturing: bool = false
 var _capture_refused: bool = false
 var _client_published: bool = false
-var _encoder: DotVoiceCodec = null
+var _encoder: GSVoiceCodec = null
 var _sequence: int = 0
 var _playback_root: Node = null
 var _registered_name: StringName = &""
-## speaker -> {jitter: DotVoiceJitter, sink: DotVoiceSink, speaking: bool, quiet_ms: float}
+## speaker -> {jitter: GSVoiceJitter, sink: GSVoiceSink, speaking: bool, quiet_ms: float}
 var _speakers: Dictionary = {}
 var _accumulated_ms: float = 0.0
 ## Channel outgoing speech is sent on.
-var channel: int = DotVoiceRouter.Channel.ALL
+var channel: int = GSVoiceRouter.Channel.ALL
 
 
 func _ready() -> void:
@@ -138,23 +138,23 @@ func _ready() -> void:
 		return
 
 	if config == null:
-		config = DotVoiceConfig.new()
+		config = GSVoiceConfig.new()
 
 	if config_file != "":
 		var loaded := config.apply_json_file(config_file)
-		DotLog.result(CHANNEL, "loading the voice config", loaded)
+		GSLog.result(CHANNEL, "loading the voice config", loaded)
 
 	config.apply_env()
 	config.apply_cli()
 
 	var valid := config.validate()
 	if not valid.ok:
-		DotLog.error(CHANNEL, "the voice config is not usable", {
+		GSLog.error(CHANNEL, "the voice config is not usable", {
 			"why": valid.error.message
 		})
 		return
 
-	gate = DotVoiceGate.new()
+	gate = GSVoiceGate.new()
 	open_mic = open_mic or not config.push_to_talk
 	gate.push_to_talk = not open_mic
 	gate.activation_rms = config.activation_rms
@@ -162,15 +162,15 @@ func _ready() -> void:
 	gate.hangover_ms = config.hangover_ms
 
 	if playback_root_ref == null:
-		playback_root_ref = DotNodeRef.of_created(&"Voices", Node)
+		playback_root_ref = GSNodeRef.of_created(&"Voices", Node)
 	_playback_root = playback_root_ref.resolve_or_null(self, CHANNEL)
 
 	if register_service:
 		_registered_name = (
-			DotRegistry.scoped_name(SERVICE, service_scope) if service_scope != &""
+			GSRegistry.scoped_name(SERVICE, service_scope) if service_scope != &""
 			else SERVICE
 		)
-		DotRegistry.register(_registered_name, self)
+		GSRegistry.register(_registered_name, self)
 
 	set_process(true)
 
@@ -180,24 +180,24 @@ func _exit_tree() -> void:
 	for speaker in _speakers.keys():
 		_destroy_speaker(int(speaker))
 	if _registered_name != &"":
-		DotRegistry.unregister_instance(_registered_name, self)
+		GSRegistry.unregister_instance(_registered_name, self)
 	if _client_published:
-		DotRegistry.unregister_instance(CLIENT_SERVICE, self)
+		GSRegistry.unregister_instance(CLIENT_SERVICE, self)
 		_client_published = false
-	if DotRegistry.signals().service_registered.is_connected(_on_service_registered):
-		DotRegistry.signals().service_registered.disconnect(_on_service_registered)
+	if GSRegistry.signals().service_registered.is_connected(_on_service_registered):
+		GSRegistry.signals().service_registered.disconnect(_on_service_registered)
 
 
 
 ## Opens the microphone. Call this when the player has agreed, and not before.
 ##
 ## Returns a failure the host should show rather than swallow (e.g. audio input disabled in project settings).
-func start_capture() -> DotResult:
+func start_capture() -> GSResult:
 	if _capturing:
-		return DotResult.success(true)
+		return GSResult.success(true)
 
 	if source == null:
-		var mic := DotVoiceSourceMicrophone.new(self, config.sample_rate)
+		var mic := GSVoiceSourceMicrophone.new(self, config.sample_rate)
 		mic.gain = config.input_gain
 		source = mic
 
@@ -209,20 +209,20 @@ func start_capture() -> DotResult:
 		capture_failed.emit(started.error)
 		return started
 
-	_encoder = DotVoiceCodec.instance_for(config.codec_id)
+	_encoder = GSVoiceCodec.instance_for(config.codec_id)
 
 	if _encoder == null:
 		source.stop()
-		var error := DotError.make(
-			DotError.CODE_INVALID, "No codec with id '%s'." % config.codec_id
+		var error := GSError.make(
+			GSError.CODE_INVALID, "No codec with id '%s'." % config.codec_id
 		)
 		capture_failed.emit(error)
-		return DotResult.failure(error)
+		return GSResult.failure(error)
 
 	_capturing = true
-	DotLog.info(CHANNEL, "capture started", config.describe())
+	GSLog.info(CHANNEL, "capture started", config.describe())
 
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
 func stop_capture() -> void:
@@ -238,7 +238,7 @@ func stop_capture() -> void:
 		gate.reset()
 		talking_changed.emit(false)
 
-	DotLog.info(CHANNEL, "capture stopped")
+	GSLog.info(CHANNEL, "capture stopped")
 
 
 func is_capturing() -> bool:
@@ -254,11 +254,11 @@ func set_talking(pressed: bool) -> void:
 ## The talk key, held or not, once a frame: what a client calls instead of [method set_talking] and [method start_capture].
 ##
 ## The first press is the consent and opens the microphone (also the user gesture a browser wants; in open-mic mode it stays open). Returns the failure to start, once, for the host to show.
-func update_talk(held: bool) -> DotResult:
+func update_talk(held: bool) -> GSResult:
 	if not server_enabled:
 		if is_talking():
 			set_talking(false)
-		return DotResult.success(false)
+		return GSResult.success(false)
 
 	if held and not _capturing and not _capture_refused:
 		var started := start_capture()
@@ -272,7 +272,7 @@ func update_talk(held: bool) -> DotResult:
 		_capture_refused = false
 
 	set_talking(held)
-	return DotResult.success(held)
+	return GSResult.success(held)
 
 
 ## Switches between push to talk and an open microphone. The microphone itself still opens
@@ -294,7 +294,7 @@ func set_input_device(device: String) -> bool:
 		return false
 	if AudioServer.input_device != device:
 		AudioServer.input_device = device
-		DotLog.info(CHANNEL, "input device set", {"device": device})
+		GSLog.info(CHANNEL, "input device set", {"device": device})
 	return true
 
 
@@ -315,8 +315,8 @@ func set_volume(linear: float) -> void:
 		config.output_gain = v
 	for key in _speakers.keys():
 		var sink: Variant = _speakers[key]["sink"]
-		if sink is DotVoiceSinkPlayer:
-			(sink as DotVoiceSinkPlayer).gain = v
+		if sink is GSVoiceSinkPlayer:
+			(sink as GSVoiceSinkPlayer).gain = v
 
 
 ## Turns voice on or off on the server's word: stops capture and playback when off.
@@ -328,25 +328,25 @@ func set_server_enabled(on: bool) -> void:
 		stop_capture()
 		for speaker in _speakers.keys():
 			_destroy_speaker(int(speaker))
-	DotLog.info(CHANNEL, "the server turned voice chat %s" % ("on" if on else "off"))
+	GSLog.info(CHANNEL, "the server turned voice chat %s" % ("on" if on else "off"))
 	server_enabled_changed.emit(on)
 
 
-## Keeps [member server_enabled] on the server's [code]sv_voice_enable[/code] as [param source] reports it: dot-server's [code]DotClientLink[/code] or anything with [code]replicated_cvar(name, fallback)[/code] and a [code]replicated_cvar_changed[/code] signal. True when following.
+## Keeps [member server_enabled] on the server's [code]sv_voice_enable[/code] as [param source] reports it: dot-server's [code]GSClientLink[/code] or anything with [code]replicated_cvar(name, fallback)[/code] and a [code]replicated_cvar_changed[/code] signal. True when following.
 ##
 ## A null source waits for the shell's link ([code]dot_client_link[/code] in the registry) and follows it once registered; returns false then.
 func follow_cvars(source: Object) -> bool:
 	if source == null or not is_instance_valid(source):
-		var bus := DotRegistry.signals()
+		var bus := GSRegistry.signals()
 		if not bus.service_registered.is_connected(_on_service_registered):
 			bus.service_registered.connect(_on_service_registered)
 		return false
 	if not source.has_method(&"replicated_cvar") or not source.has_signal(&"replicated_cvar_changed"):
 		return false
 
-	var held := String(source.call(&"replicated_cvar", DotVoiceRouter.CVAR_ENABLE, ""))
+	var held := String(source.call(&"replicated_cvar", GSVoiceRouter.CVAR_ENABLE, ""))
 	if held != "":
-		_on_replicated_cvar(DotVoiceRouter.CVAR_ENABLE, held)
+		_on_replicated_cvar(GSVoiceRouter.CVAR_ENABLE, held)
 
 	if not source.is_connected(&"replicated_cvar_changed", _on_replicated_cvar):
 		source.connect(&"replicated_cvar_changed", _on_replicated_cvar)
@@ -360,12 +360,12 @@ const LINK_SERVICE := &"dot_client_link"
 func _on_service_registered(service: StringName, instance: Object) -> void:
 	if service != LINK_SERVICE or instance == null:
 		return
-	DotRegistry.signals().service_registered.disconnect(_on_service_registered)
+	GSRegistry.signals().service_registered.disconnect(_on_service_registered)
 	var _following := follow_cvars(instance)
 
 
 func _on_replicated_cvar(cvar_name: String, value: String) -> void:
-	if cvar_name != DotVoiceRouter.CVAR_ENABLE:
+	if cvar_name != GSVoiceRouter.CVAR_ENABLE:
 		return
 	var text := value.strip_edges()
 	if text.is_valid_float():
@@ -375,7 +375,7 @@ func _on_replicated_cvar(cvar_name: String, value: String) -> void:
 ## Publishes this manager as the process's own player's voice ([constant CLIENT_SERVICE]),
 ## for a settings menu to bind. Unpublished when it leaves the tree.
 func publish_as_client() -> void:
-	DotRegistry.register(CLIENT_SERVICE, self)
+	GSRegistry.register(CLIENT_SERVICE, self)
 	_client_published = true
 
 
@@ -447,7 +447,7 @@ func _pump_capture(_delta: float) -> void:
 				_encoder.reset()
 			continue
 
-		var packet := DotVoicePacket.new()
+		var packet := GSVoicePacket.new()
 		packet.speaker = 0
 		packet.sequence = _sequence
 		packet.sample_count = frame_samples
@@ -471,15 +471,15 @@ func _pump_capture(_delta: float) -> void:
 
 ## Takes one packet from the server; returns whether it was accepted, so a host on a shared channel knows whether to keep looking for a handler.
 func receive(bytes: PackedByteArray) -> bool:
-	var parsed := DotVoicePacket.from_bytes(bytes, config.frame_samples() * 4)
+	var parsed := GSVoicePacket.from_bytes(bytes, config.frame_samples() * 4)
 
 	if not parsed.ok:
-		DotLog.debug(CHANNEL, "dropping a malformed voice packet", {
+		GSLog.debug(CHANNEL, "dropping a malformed voice packet", {
 			"why": parsed.error.message
 		})
 		return false
 
-	var packet: DotVoicePacket = parsed.value
+	var packet: GSVoicePacket = parsed.value
 
 	frames_received += 1
 	bytes_received += bytes.size()
@@ -502,7 +502,7 @@ func receive(bytes: PackedByteArray) -> bool:
 	# were sent with rather than the one of the latest packet; one frame of lag at 20 ms.
 	speaker["gain"] = packet.gain
 
-	(speaker["jitter"] as DotVoiceJitter).push(packet)
+	(speaker["jitter"] as GSVoiceJitter).push(packet)
 	return true
 
 
@@ -513,7 +513,7 @@ func set_local_mute(speaker: int, muted: bool) -> void:
 		# Dropped rather than left to drain, so a mute takes effect on the word being
 		# spoken rather than a jitter buffer later.
 		if _speakers.has(speaker):
-			(_speakers[speaker]["jitter"] as DotVoiceJitter).reset()
+			(_speakers[speaker]["jitter"] as GSVoiceJitter).reset()
 	else:
 		local_mutes.erase(speaker)
 
@@ -524,7 +524,7 @@ func set_gag(speaker: int, on: bool) -> void:
 		gagged[speaker] = true
 		ungagged.erase(speaker)
 		if _speakers.has(speaker):
-			(_speakers[speaker]["jitter"] as DotVoiceJitter).reset()
+			(_speakers[speaker]["jitter"] as GSVoiceJitter).reset()
 	else:
 		gagged.erase(speaker)
 		ungagged[speaker] = true
@@ -542,9 +542,9 @@ func is_locally_muted(speaker: int) -> bool:
 func set_speaker_position(speaker: int, position: Vector3) -> void:
 	if not _speakers.has(speaker):
 		return
-	var sink: DotVoiceSink = _speakers[speaker]["sink"]
-	if sink is DotVoiceSinkPlayer:
-		(sink as DotVoiceSinkPlayer).set_position(position)
+	var sink: GSVoiceSink = _speakers[speaker]["sink"]
+	if sink is GSVoiceSinkPlayer:
+		(sink as GSVoiceSinkPlayer).set_position(position)
 
 
 ## Speakers currently making sound.
@@ -566,28 +566,28 @@ func _ensure_speaker(speaker: int, codec_id: StringName) -> Dictionary:
 
 	# A codec instance of this speaker's own. Two speakers sharing one stateful decoder
 	# interleave their predictors and both come out as noise.
-	var codec := DotVoiceCodec.instance_for(codec_id)
+	var codec := GSVoiceCodec.instance_for(codec_id)
 
 	if codec == null:
-		DotLog.warn(CHANNEL, "a speaker is using a codec this build does not have", {
+		GSLog.warn(CHANNEL, "a speaker is using a codec this build does not have", {
 			"speaker": speaker, "codec": String(codec_id)
 		})
 		return {}
 
-	var jitter := DotVoiceJitter.new(config.frame_samples(), codec)
+	var jitter := GSVoiceJitter.new(config.frame_samples(), codec)
 	jitter.target_frames = maxi(1, int(config.jitter_ms / config.frame_ms))
 	jitter.max_frames = maxi(
 		jitter.target_frames + 1, int(config.jitter_max_ms / config.frame_ms)
 	)
 
-	var sink: DotVoiceSink = null
+	var sink: GSVoiceSink = null
 
 	if sink_factory.is_valid():
-		sink = sink_factory.call(speaker) as DotVoiceSink
+		sink = sink_factory.call(speaker) as GSVoiceSink
 	else:
 		if _playback_root == null:
 			_playback_root = playback_root_ref.resolve_or_null(self, CHANNEL)
-		var player := DotVoiceSinkPlayer.new(_playback_root, config.sample_rate)
+		var player := GSVoiceSinkPlayer.new(_playback_root, config.sample_rate)
 		player.positional = positional_playback and speaker_position_fn.is_valid()
 		player.bus = playback_bus
 		player.max_distance = config.proximity_range
@@ -599,7 +599,7 @@ func _ensure_speaker(speaker: int, codec_id: StringName) -> Dictionary:
 
 	var started := sink.start()
 	if not started.ok:
-		DotLog.warn(CHANNEL, "could not start playback for a speaker", {
+		GSLog.warn(CHANNEL, "could not start playback for a speaker", {
 			"speaker": speaker, "why": started.error.message
 		})
 		return {}
@@ -623,7 +623,7 @@ func _destroy_speaker(speaker: int) -> void:
 		return
 
 	var entry: Dictionary = _speakers[speaker]
-	(entry["sink"] as DotVoiceSink).stop()
+	(entry["sink"] as GSVoiceSink).stop()
 
 	if bool(entry["speaking"]):
 		speaker_changed.emit(speaker, false)
@@ -655,8 +655,8 @@ func _pump_playback(delta: float) -> void:
 		for key in _speakers.keys():
 			var speaker := int(key)
 			var entry: Dictionary = _speakers[speaker]
-			var jitter: DotVoiceJitter = entry["jitter"]
-			var sink: DotVoiceSink = entry["sink"]
+			var jitter: GSVoiceJitter = entry["jitter"]
+			var sink: GSVoiceSink = entry["sink"]
 
 			var frame := jitter.pop()
 
@@ -711,15 +711,15 @@ func describe_lines() -> PackedStringArray:
 		", talking" if is_talking() else ""
 	])
 	out.append("sent      %d frames, %s" % [
-		frames_sent, DotPaths.format_bytes(bytes_sent)
+		frames_sent, GSPaths.format_bytes(bytes_sent)
 	])
 	out.append("received  %d frames, %s" % [
-		frames_received, DotPaths.format_bytes(bytes_received)
+		frames_received, GSPaths.format_bytes(bytes_received)
 	])
 
 	for key in _speakers.keys():
 		var entry: Dictionary = _speakers[key]
-		var jitter: DotVoiceJitter = entry["jitter"]
+		var jitter: GSVoiceJitter = entry["jitter"]
 		out.append("  speaker %-6d %s buffered=%d late=%d lost=%d" % [
 			int(key),
 			"talking" if bool(entry["speaking"]) else "quiet ",

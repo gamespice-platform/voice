@@ -1,10 +1,10 @@
 @tool
-class_name DotVoiceCodecAdpcm
-extends DotVoiceCodec
+class_name GSVoiceCodecAdpcm
+extends GSVoiceCodec
 
 ## IMA ADPCM: four bits a sample, a quarter of PCM's bandwidth, and the default codec.
 ##
-## At 24 kHz, 4 talkers relayed to 19 listeners is 3.6 MB/s on PCM and 900 kB/s here. It is stateful, so each speaker needs their own instance ([method DotVoiceCodec.instance_for]), and each packet carries a 4-byte starting state so one lost packet recovers on the next. Costs slight hiss on quiet passages.
+## At 24 kHz, 4 talkers relayed to 19 listeners is 3.6 MB/s on PCM and 900 kB/s here. It is stateful, so each speaker needs their own instance ([method GSVoiceCodec.instance_for]), and each packet carries a 4-byte starting state so one lost packet recovers on the next. Costs slight hiss on quiet passages.
 
 ## IMA's step size table, fixed by the format.
 ##
@@ -44,7 +44,7 @@ func reset() -> void:
 	_index = 0
 
 
-func duplicate_codec() -> DotVoiceCodec:
+func duplicate_codec() -> GSVoiceCodec:
 	# A real copy every time: speakers sharing an instance interleave predictors into noise.
 	# Not this class's own name: a script naming itself, loaded after its base, cuts 4.7.2's exit
 	# teardown short (docs/gdscript-hazards.md, "A script that names itself").

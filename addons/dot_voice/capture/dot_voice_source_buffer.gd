@@ -1,10 +1,10 @@
 @tool
-class_name DotVoiceSourceBuffer
-extends DotVoiceSource
+class_name GSVoiceSourceBuffer
+extends GSVoiceSource
 
 ## A source fed by hand, for tests, bots and recording playback.
 ##
-## The headless suite runs on this class: samples written here come out of a [DotVoiceSinkBuffer] with no audio device.
+## The headless suite runs on this class: samples written here come out of a [GSVoiceSinkBuffer] with no audio device.
 
 var _pending: PackedFloat32Array = PackedFloat32Array()
 var _running: bool = false
@@ -15,9 +15,9 @@ var loop: bool = false
 var _loop_source: PackedFloat32Array = PackedFloat32Array()
 
 
-func start() -> DotResult:
+func start() -> GSResult:
 	_running = true
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
 func stop() -> void:

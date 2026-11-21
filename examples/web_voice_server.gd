@@ -1,18 +1,18 @@
 extends SceneTree
 
-## The server half of tools/web_voice_check.mjs: a [DotVoiceRouter] behind a WebSocket listener, and a native bot talking a 300 Hz tone, recording what the browser says. Prints `SERVER {json}` once a second.
+## The server half of tools/web_voice_check.mjs: a [GSVoiceRouter] behind a WebSocket listener, and a native bot talking a 300 Hz tone, recording what the browser says. Prints `SERVER {json}` once a second.
 ##
 ## Run: godot --headless --path . --script examples/web_voice_server.gd -- --port 47380 --seconds 30
 
 var _server := TCPServer.new()
-var _router: DotVoiceRouter = null
+var _router: GSVoiceRouter = null
 var _peers: Dictionary = {}   # id -> WebSocketPeer
 var _next_id := 1_900_000_001
 var _bot_ws := WebSocketPeer.new()
-var _bot_talker: DotVoiceManager = null
-var _bot_listener: DotVoiceManager = null
-var _bot_mic := DotVoiceSourceBuffer.new()
-var _bot_heard := DotVoiceSinkBuffer.new()
+var _bot_talker: GSVoiceManager = null
+var _bot_listener: GSVoiceManager = null
+var _bot_mic := GSVoiceSourceBuffer.new()
+var _bot_heard := GSVoiceSinkBuffer.new()
 var _bot_speakers: Array[int] = []
 var _ends_at := 0
 var _last := 0
@@ -20,7 +20,7 @@ var _started := false
 
 
 func _initialize() -> void:
-	DotLog.set_level(DotLog.Level.WARN)
+	GSLog.set_level(GSLog.Level.WARN)
 	var args := OS.get_cmdline_user_args()
 	var port := 47380
 	var seconds := 30
@@ -38,8 +38,8 @@ func _initialize() -> void:
 
 
 func _start_nodes() -> void:
-	var config := DotVoiceConfig.new()
-	_router = DotVoiceRouter.new()
+	var config := GSVoiceConfig.new()
+	_router = GSVoiceRouter.new()
 	_router.config = config
 	_router.send_fn = func(peer: int, bytes: PackedByteArray) -> void:
 		var ws: WebSocketPeer = _peers.get(peer)
@@ -47,7 +47,7 @@ func _start_nodes() -> void:
 			var _s := ws.send(bytes)
 	root.add_child(_router)
 
-	_bot_talker = DotVoiceManager.new()
+	_bot_talker = GSVoiceManager.new()
 	_bot_talker.config = config
 	_bot_talker.config_file = ""
 	_bot_talker.register_service = false
@@ -58,12 +58,12 @@ func _start_nodes() -> void:
 			var _s := _bot_ws.send(b)
 	root.add_child(_bot_talker)
 
-	_bot_listener = DotVoiceManager.new()
+	_bot_listener = GSVoiceManager.new()
 	_bot_listener.config = config
 	_bot_listener.config_file = ""
 	_bot_listener.register_service = false
 	_bot_heard.sample_rate = config.sample_rate
-	_bot_listener.sink_factory = func(speaker: int) -> DotVoiceSink:
+	_bot_listener.sink_factory = func(speaker: int) -> GSVoiceSink:
 		_bot_speakers.append(speaker)
 		return _bot_heard
 	root.add_child(_bot_listener)
@@ -97,7 +97,7 @@ func _process(delta: float) -> bool:
 			var _t := _bot_talker.update_talk(true)
 		var n := int(delta * float(_bot_mic.sample_rate))
 		if n > 0:
-			_bot_mic.write(DotVoiceSourceBuffer.tone(300.0, float(n) / float(_bot_mic.sample_rate), _bot_mic.sample_rate, 0.4))
+			_bot_mic.write(GSVoiceSourceBuffer.tone(300.0, float(n) / float(_bot_mic.sample_rate), _bot_mic.sample_rate, 0.4))
 		var _h := _bot_talker.update_talk(true)
 
 	var now := Time.get_ticks_msec()

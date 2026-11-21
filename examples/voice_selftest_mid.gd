@@ -9,25 +9,25 @@ func _test_end_to_end() -> void:
 	var config := _config()
 
 	# The speaker's half.
-	var talker := DotVoiceManager.new()
+	var talker := GSVoiceManager.new()
 	talker.name = "Talker"
 	talker.config = config
 	talker.config_file = ""
 	talker.register_service = false
-	var mic := DotVoiceSourceBuffer.new()
+	var mic := GSVoiceSourceBuffer.new()
 	mic.sample_rate = config.sample_rate
 	talker.source = mic
 
 	# The listener's half, in the same process, with its own buffers.
-	var listener := DotVoiceManager.new()
+	var listener := GSVoiceManager.new()
 	listener.name = "Listener"
 	listener.config = config
 	listener.config_file = ""
 	listener.register_service = false
 
-	var heard := DotVoiceSinkBuffer.new()
+	var heard := GSVoiceSinkBuffer.new()
 	heard.sample_rate = config.sample_rate
-	listener.sink_factory = func(_speaker: int) -> DotVoiceSink: return heard
+	listener.sink_factory = func(_speaker: int) -> GSVoiceSink: return heard
 
 	# The wire, as a Callable. Nothing here knows what a socket is, which is the same
 	# reason GameSpice Net takes a send_fn.
@@ -46,7 +46,7 @@ func _test_end_to_end() -> void:
 		return
 
 	# Half a second of a tone, and the key held down.
-	mic.write(DotVoiceSourceBuffer.tone(440.0, 0.5, config.sample_rate, 0.4))
+	mic.write(GSVoiceSourceBuffer.tone(440.0, 0.5, config.sample_rate, 0.4))
 	talker.set_talking(true)
 
 	for _i in range(40):
@@ -65,7 +65,7 @@ func _test_end_to_end() -> void:
 
 
 ## The talker's packets: one per frame, about one per 20 ms, one opening the spurt.
-func _check_wire(talker: DotVoiceManager, on_wire: Array[PackedByteArray], config: DotVoiceConfig) -> void:
+func _check_wire(talker: GSVoiceManager, on_wire: Array[PackedByteArray], config: GSVoiceConfig) -> void:
 	_check(talker.frames_sent > 0, "frames go on the wire (%d)" % talker.frames_sent)
 	_check(on_wire.size() == talker.frames_sent, "one packet per frame")
 
@@ -79,14 +79,14 @@ func _check_wire(talker: DotVoiceManager, on_wire: Array[PackedByteArray], confi
 	# A talk spurt has to be flagged on its first packet and nowhere else.
 	var starts := 0
 	for bytes in on_wire:
-		var parsed := DotVoicePacket.from_bytes(bytes)
-		if parsed.ok and (parsed.value as DotVoicePacket).starts_talk_spurt:
+		var parsed := GSVoicePacket.from_bytes(bytes)
+		if parsed.ok and (parsed.value as GSVoicePacket).starts_talk_spurt:
 			starts += 1
 	_check(starts == 1, "exactly one packet opens the spurt (%d)" % starts)
 
 
 ## The packets delivered as a server would, heard, then muted locally.
-func _check_heard(listener: DotVoiceManager, heard: DotVoiceSinkBuffer, on_wire: Array[PackedByteArray]) -> void:
+func _check_heard(listener: GSVoiceManager, heard: GSVoiceSinkBuffer, on_wire: Array[PackedByteArray]) -> void:
 	# Deliver them, as a server would, with the speaker stamped.
 	_deliver_stamped(listener, on_wire)
 
@@ -124,11 +124,11 @@ func _check_heard(listener: DotVoiceManager, heard: DotVoiceSinkBuffer, on_wire:
 	_check(not listener.is_locally_muted(7), "and unmuting takes")
 
 
-func _check_release(talker: DotVoiceManager, mic: DotVoiceSourceBuffer, config: DotVoiceConfig) -> void:
+func _check_release(talker: GSVoiceManager, mic: GSVoiceSourceBuffer, config: GSVoiceConfig) -> void:
 	# Releasing the key stops the traffic. A gate that only ever opens is a hot mic.
 	var before := talker.frames_sent
 	talker.set_talking(false)
-	mic.write(DotVoiceSourceBuffer.tone(440.0, 0.2, config.sample_rate, 0.4))
+	mic.write(GSVoiceSourceBuffer.tone(440.0, 0.2, config.sample_rate, 0.4))
 	for _i in range(20):
 		await get_tree().process_frame
 	_check(
@@ -142,10 +142,10 @@ func _check_release(talker: DotVoiceManager, mic: DotVoiceSourceBuffer, config: 
 
 
 ## Every packet on the wire to [param listener], with the speaker stamped 7 as a server would.
-func _deliver_stamped(listener: DotVoiceManager, on_wire: Array[PackedByteArray]) -> void:
+func _deliver_stamped(listener: GSVoiceManager, on_wire: Array[PackedByteArray]) -> void:
 	for bytes in on_wire:
-		var parsed := DotVoicePacket.from_bytes(bytes)
-		var packet: DotVoicePacket = parsed.value
+		var parsed := GSVoicePacket.from_bytes(bytes)
+		var packet: GSVoicePacket = parsed.value
 		packet.speaker = 7
 		listener.receive(packet.to_bytes())
 
@@ -155,7 +155,7 @@ func _test_router() -> void:
 
 	var config := _config()
 
-	var router := DotVoiceRouter.new()
+	var router := GSVoiceRouter.new()
 	router.name = "Router"
 	router.config = config
 	router.max_bytes_per_second = 0
@@ -171,11 +171,11 @@ func _test_router() -> void:
 	router.send_fn = func(peer: int, bytes: PackedByteArray) -> void:
 		delivered.append({"peer": peer, "bytes": bytes})
 
-	var codec := DotVoiceCodec.instance_for(&"adpcm")
-	var frame := DotVoiceSourceBuffer.tone(300.0, 0.02, config.sample_rate, 0.4)
+	var codec := GSVoiceCodec.instance_for(&"adpcm")
+	var frame := GSVoiceSourceBuffer.tone(300.0, 0.02, config.sample_rate, 0.4)
 
 	var make := func(channel: int, claimed_speaker: int) -> PackedByteArray:
-		var packet := DotVoicePacket.new()
+		var packet := GSVoicePacket.new()
 		packet.speaker = claimed_speaker
 		packet.sequence = 0
 		packet.sample_count = config.frame_samples()
@@ -187,7 +187,7 @@ func _test_router() -> void:
 	_router_all_and_team(router, delivered, make)
 	_router_proximity(router, delivered, make)
 	_router_mute(router, delivered, make)
-	var limited: DotVoiceRouter = await _router_rate_limit(config, make)
+	var limited: GSVoiceRouter = await _router_rate_limit(config, make)
 	_router_malformed(router)
 
 	router.queue_free()
@@ -196,10 +196,10 @@ func _test_router() -> void:
 	_done()
 
 
-func _router_all_and_team(router: DotVoiceRouter, delivered: Array[Dictionary], make: Callable) -> void:
+func _router_all_and_team(router: GSVoiceRouter, delivered: Array[Dictionary], make: Callable) -> void:
 	# ALL reaches everybody except the speaker. Hearing yourself at a round trip's delay
 	# is the single most disorienting thing a voice system can do.
-	var relayed := router.relay(1, make.call(DotVoiceRouter.Channel.ALL, 1))
+	var relayed := router.relay(1, make.call(GSVoiceRouter.Channel.ALL, 1))
 	_check(relayed.ok, "an ordinary packet relays", str(relayed.error))
 	_check(delivered.size() == 3, "to everyone but the speaker (%d)" % delivered.size())
 
@@ -212,11 +212,11 @@ func _router_all_and_team(router: DotVoiceRouter, delivered: Array[Dictionary], 
 	# The speaker id is stamped from the transport, never taken from the packet.
 	# Otherwise any client can put words in any other player's mouth.
 	delivered.clear()
-	router.relay(2, make.call(DotVoiceRouter.Channel.ALL, 1))
+	router.relay(2, make.call(GSVoiceRouter.Channel.ALL, 1))
 	var claimed_ok := true
 	for entry in delivered:
-		var parsed := DotVoicePacket.from_bytes(entry["bytes"])
-		if parsed.ok and (parsed.value as DotVoicePacket).speaker != 2:
+		var parsed := GSVoicePacket.from_bytes(entry["bytes"])
+		if parsed.ok and (parsed.value as GSVoicePacket).speaker != 2:
 			claimed_ok = false
 	_check(
 		claimed_ok,
@@ -227,7 +227,7 @@ func _router_all_and_team(router: DotVoiceRouter, delivered: Array[Dictionary], 
 	# TEAM.
 	delivered.clear()
 	router.team_fn = func(peer: int) -> int: return 0 if peer <= 2 else 1
-	router.relay(1, make.call(DotVoiceRouter.Channel.TEAM, 1))
+	router.relay(1, make.call(GSVoiceRouter.Channel.TEAM, 1))
 	_check(delivered.size() == 1, "a team packet reaches the team (%d)" % delivered.size())
 	_check(
 		delivered.size() == 1 and int(delivered[0]["peer"]) == 2,
@@ -239,7 +239,7 @@ func _router_all_and_team(router: DotVoiceRouter, delivered: Array[Dictionary], 
 	# in a way nobody reports, because it sounds exactly like working.
 	delivered.clear()
 	router.team_fn = Callable()
-	router.relay(1, make.call(DotVoiceRouter.Channel.TEAM, 1))
+	router.relay(1, make.call(GSVoiceRouter.Channel.TEAM, 1))
 	_check(
 		delivered.is_empty(),
 		"with no team_fn it reaches nobody rather than everybody",
@@ -247,14 +247,14 @@ func _router_all_and_team(router: DotVoiceRouter, delivered: Array[Dictionary], 
 	)
 
 
-func _router_proximity(router: DotVoiceRouter, delivered: Array[Dictionary], make: Callable) -> void:
+func _router_proximity(router: GSVoiceRouter, delivered: Array[Dictionary], make: Callable) -> void:
 	# PROXIMITY.
 	delivered.clear()
 	router.proximity_range = 10.0
 	var places := {1: Vector3.ZERO, 2: Vector3(5, 0, 0), 3: Vector3(50, 0, 0),
 				   4: Vector3(9, 0, 0)}
 	router.position_fn = func(peer: int) -> Vector3: return places.get(peer, Vector3.ZERO)
-	router.relay(1, make.call(DotVoiceRouter.Channel.PROXIMITY, 1))
+	router.relay(1, make.call(GSVoiceRouter.Channel.PROXIMITY, 1))
 	_check(delivered.size() == 2, "a proximity packet reaches the near (%d)" % delivered.size())
 	var far_heard := false
 	for entry in delivered:
@@ -270,7 +270,7 @@ func _router_proximity(router: DotVoiceRouter, delivered: Array[Dictionary], mak
 	router.can_hear_fn = func(listener: int, speaker: int, listener_at: Vector3, speaker_at: Vector3) -> bool:
 		asked.append(listener)
 		return speaker == 1 and (listener_at.x < 7.0) == (speaker_at.x < 7.0)
-	router.relay(1, make.call(DotVoiceRouter.Channel.PROXIMITY, 1))
+	router.relay(1, make.call(GSVoiceRouter.Channel.PROXIMITY, 1))
 	_check(
 		delivered.size() == 1 and int(delivered[0]["peer"]) == 2,
 		"can_hear_fn takes out a listener the range let in (%d delivered)" % delivered.size()
@@ -282,11 +282,11 @@ func _router_proximity(router: DotVoiceRouter, delivered: Array[Dictionary], mak
 	router.can_hear_fn = Callable()
 
 
-func _router_mute(router: DotVoiceRouter, delivered: Array[Dictionary], make: Callable) -> void:
+func _router_mute(router: GSVoiceRouter, delivered: Array[Dictionary], make: Callable) -> void:
 	# Muting, on the server, where it cannot be ignored by the person being muted.
 	delivered.clear()
 	router.set_muted(1, true)
-	var muted_result := router.relay(1, make.call(DotVoiceRouter.Channel.ALL, 1))
+	var muted_result := router.relay(1, make.call(GSVoiceRouter.Channel.ALL, 1))
 	_check(delivered.is_empty(), "a muted speaker reaches nobody")
 	_check(
 		muted_result.ok,
@@ -297,13 +297,13 @@ func _router_mute(router: DotVoiceRouter, delivered: Array[Dictionary], make: Ca
 
 	router.set_muted(1, false)
 	delivered.clear()
-	router.relay(1, make.call(DotVoiceRouter.Channel.ALL, 1))
+	router.relay(1, make.call(GSVoiceRouter.Channel.ALL, 1))
 	_check(delivered.size() == 3, "unmuting lets them speak again")
 
 
-func _router_rate_limit(config: DotVoiceConfig, make: Callable) -> DotVoiceRouter:
+func _router_rate_limit(config: GSVoiceConfig, make: Callable) -> GSVoiceRouter:
 	# The rate limit, which is what stops voice being a bandwidth amplifier.
-	var limited := DotVoiceRouter.new()
+	var limited := GSVoiceRouter.new()
 	limited.name = "Limited"
 	limited.config = config
 	limited.max_bytes_per_second = 512
@@ -317,7 +317,7 @@ func _router_rate_limit(config: DotVoiceConfig, make: Callable) -> DotVoiceRoute
 	var accepted := 0
 	var refused := 0
 	for _i in range(60):
-		if limited.relay(1, make.call(DotVoiceRouter.Channel.ALL, 1)).ok:
+		if limited.relay(1, make.call(GSVoiceRouter.Channel.ALL, 1)).ok:
 			accepted += 1
 		else:
 			refused += 1
@@ -332,7 +332,7 @@ func _router_rate_limit(config: DotVoiceConfig, make: Callable) -> DotVoiceRoute
 	return limited
 
 
-func _router_malformed(router: DotVoiceRouter) -> void:
+func _router_malformed(router: GSVoiceRouter) -> void:
 	# A malformed packet is refused rather than crashing the relay.
 	_check(
 		not router.relay(1, PackedByteArray([1, 2, 3])).ok,
@@ -341,7 +341,7 @@ func _router_malformed(router: DotVoiceRouter) -> void:
 	_check(router.refused_format > 0, "and counted")
 
 	# A frame of the wrong length is a client running a different config.
-	var wrong := DotVoicePacket.new()
+	var wrong := GSVoicePacket.new()
 	wrong.sample_count = 240
 	wrong.codec_id = &"adpcm"
 	wrong.payload = PackedByteArray([1])
@@ -351,7 +351,7 @@ func _router_malformed(router: DotVoiceRouter) -> void:
 	)
 
 
-## A cvar as GameSpice Server's DotConVar looks to [method DotVoiceRouter.bind_cvars]: a value,
+## A cvar as GameSpice Server's GSConVar looks to [method GSVoiceRouter.bind_cvars]: a value,
 ## a changed signal, a range. Duck-typed there, so a stand-in is the whole contract.
 class FakeCvar:
 	extends RefCounted
@@ -371,7 +371,7 @@ class FakeCvar:
 		changed.emit(old, v)
 
 
-## A client link as GameSpice Server's DotClientLink looks to [method DotVoiceManager.follow_cvars].
+## A client link as GameSpice Server's GSClientLink looks to [method GSVoiceManager.follow_cvars].
 class FakeLink:
 	extends RefCounted
 	signal replicated_cvar_changed(cvar_name: String, value: String)
@@ -387,7 +387,7 @@ func _test_server_switch() -> void:
 	_section("the server's switch, and the game's channel")
 
 	var config := _config()
-	var router := DotVoiceRouter.new()
+	var router := GSVoiceRouter.new()
 	router.name = "SwitchRouter"
 	router.config = config
 	router.max_bytes_per_second = 0
@@ -400,19 +400,19 @@ func _test_server_switch() -> void:
 	var delivered: Array[int] = []
 	router.send_fn = func(peer: int, _bytes: PackedByteArray) -> void: delivered.append(peer)
 
-	var codec := DotVoiceCodec.instance_for(&"adpcm")
-	var packet := DotVoicePacket.new()
+	var codec := GSVoiceCodec.instance_for(&"adpcm")
+	var packet := GSVoicePacket.new()
 	packet.sample_count = config.frame_samples()
-	packet.channel = DotVoiceRouter.Channel.ALL
+	packet.channel = GSVoiceRouter.Channel.ALL
 	packet.codec_id = &"adpcm"
-	packet.payload = codec.encode(DotVoiceSourceBuffer.tone(300.0, 0.02, config.sample_rate, 0.4))
+	packet.payload = codec.encode(GSVoiceSourceBuffer.tone(300.0, 0.02, config.sample_rate, 0.4))
 	var bytes := packet.to_bytes()
 
 	_switch_channels(router, delivered, bytes)
 
 	_switch_cvars(router, delivered, bytes, config)
 
-	var listener: DotVoiceManager = await _switch_client(config, packet)
+	var listener: GSVoiceManager = await _switch_client(config, packet)
 
 	await _switch_late(config)
 
@@ -423,10 +423,10 @@ func _test_server_switch() -> void:
 
 
 ## The game's channel, the operator's forced one, and off.
-func _switch_channels(router: DotVoiceRouter, delivered: Array[int], bytes: PackedByteArray) -> void:
+func _switch_channels(router: GSVoiceRouter, delivered: Array[int], bytes: PackedByteArray) -> void:
 	# The game chose team voice; the client's packet says ALL. Armed: before default_channel
 	# was read, this reached all three and every team game was everybody's.
-	router.default_channel = DotVoiceRouter.Channel.TEAM
+	router.default_channel = GSVoiceRouter.Channel.TEAM
 	router.team_fn = func(peer: int) -> int: return 0 if peer <= 2 else 1
 	var _r := router.relay(1, bytes)
 	_check(delivered == [2], "the game's channel wins over the one the packet names (%s)" % str(delivered),
@@ -434,13 +434,13 @@ func _switch_channels(router: DotVoiceRouter, delivered: Array[int], bytes: Pack
 
 	# The operator's mode wins over the game's.
 	delivered.clear()
-	router.forced_channel = DotVoiceRouter.Channel.ALL
+	router.forced_channel = GSVoiceRouter.Channel.ALL
 	_r = router.relay(1, bytes)
 	_check(delivered.size() == 3, "a forced channel wins over the game's (%d)" % delivered.size())
 	router.forced_channel = -1
 
 	# Off relays nothing, quietly, and counts it. Armed by the same packet relaying with it on.
-	router.default_channel = DotVoiceRouter.Channel.ALL
+	router.default_channel = GSVoiceRouter.Channel.ALL
 	delivered.clear()
 	router.enabled = false
 	var off := router.relay(1, bytes)
@@ -453,10 +453,10 @@ func _switch_channels(router: DotVoiceRouter, delivered: Array[int], bytes: Pack
 
 
 func _switch_cvars(
-	router: DotVoiceRouter,
+	router: GSVoiceRouter,
 	delivered: Array[int],
 	bytes: PackedByteArray,
-	config: DotVoiceConfig
+	config: GSVoiceConfig
 ) -> void:
 	# The cvars, through a module's add_cvar.
 	var made := {}
@@ -466,10 +466,10 @@ func _switch_cvars(
 		made[n] = c
 		return c
 	var cvars := router.bind_cvars(add, 0)
-	_check(cvars.size() == router.cvar_specs().size() and made.has(DotVoiceRouter.CVAR_ENABLE) and made.has(DotVoiceRouter.CVAR_MODE),
+	_check(cvars.size() == router.cvar_specs().size() and made.has(GSVoiceRouter.CVAR_ENABLE) and made.has(GSVoiceRouter.CVAR_MODE),
 		"bind_cvars registers sv_voice_enable, sv_voice_mode and the proximity cvars (%s)" % str(made.keys()))
-	var enable: FakeCvar = made.get(DotVoiceRouter.CVAR_ENABLE)
-	var mode: FakeCvar = made.get(DotVoiceRouter.CVAR_MODE)
+	var enable: FakeCvar = made.get(GSVoiceRouter.CVAR_ENABLE)
+	var mode: FakeCvar = made.get(GSVoiceRouter.CVAR_MODE)
 	_check(enable != null and enable.value == "1" and enable.high == 1.0, "sv_voice_enable defaults to 1, range 0..1")
 	enable.set_string("0")
 	delivered.clear()
@@ -479,45 +479,45 @@ func _switch_cvars(
 	_r = router.relay(1, bytes)
 	_check(router.enabled and delivered.size() == 3, "and 1 turns it back on (%d)" % delivered.size())
 	mode.set_string("2")
-	_check(router.forced_channel == DotVoiceRouter.Channel.TEAM, "sv_voice_mode 2 forces team voice")
+	_check(router.forced_channel == GSVoiceRouter.Channel.TEAM, "sv_voice_mode 2 forces team voice")
 	mode.set_string("0")
 	_check(router.forced_channel == -1, "and 0 hands it back to the game")
-	_check(not router.set_cvar(DotVoiceRouter.CVAR_ENABLE, "yes") and router.enabled,
+	_check(not router.set_cvar(GSVoiceRouter.CVAR_ENABLE, "yes") and router.enabled,
 		"a value that is not a number is refused and changes nothing")
 
 	# A value set before the router bound (argv, content.yml) is the one it starts on.
-	var early := DotVoiceRouter.new()
+	var early := GSVoiceRouter.new()
 	early.config = config
 	var preset := func(n: String, _v: String, _d: String, _f: int) -> Object:
 		var c := FakeCvar.new()
-		c.value = "0" if n == DotVoiceRouter.CVAR_ENABLE else "0"
+		c.value = "0" if n == GSVoiceRouter.CVAR_ENABLE else "0"
 		return c
 	var _made_early := early.bind_cvars(preset, 0)
 	_check(not early.enabled, "a value the operator set before binding is read back")
 	early.free()
 
 
-func _switch_client(config: DotVoiceConfig, packet: DotVoicePacket) -> DotVoiceManager:
+func _switch_client(config: GSVoiceConfig, packet: GSVoicePacket) -> GSVoiceManager:
 	# The client's half: the link says off, the manager stops.
-	var listener := DotVoiceManager.new()
+	var listener := GSVoiceManager.new()
 	listener.name = "SwitchListener"
 	listener.config = config
 	listener.config_file = ""
 	listener.register_service = false
-	var heard := DotVoiceSinkBuffer.new()
+	var heard := GSVoiceSinkBuffer.new()
 	heard.sample_rate = config.sample_rate
-	listener.sink_factory = func(_speaker: int) -> DotVoiceSink: return heard
+	listener.sink_factory = func(_speaker: int) -> GSVoiceSink: return heard
 	add_child(listener)
 	await get_tree().process_frame
 
 	var told: Array[bool] = []
 	listener.server_enabled_changed.connect(func(on: bool) -> void: told.append(on))
 	var link := FakeLink.new()
-	link.values[DotVoiceRouter.CVAR_ENABLE] = "0"
+	link.values[GSVoiceRouter.CVAR_ENABLE] = "0"
 	_check(listener.follow_cvars(link), "a manager follows a link that replicates cvars")
 	_check(not listener.server_enabled and told == [false], "and takes the value the link already holds (%s)" % str(told))
 
-	var mic := DotVoiceSourceBuffer.new()
+	var mic := GSVoiceSourceBuffer.new()
 	mic.sample_rate = config.sample_rate
 	listener.source = mic
 	var _t := listener.update_talk(true)
@@ -530,16 +530,16 @@ func _switch_client(config: DotVoiceConfig, packet: DotVoicePacket) -> DotVoiceM
 		await get_tree().process_frame
 	_check(heard.frames_written == 0, "and what arrives anyway is not played (%d)" % heard.frames_written)
 
-	link.tell(DotVoiceRouter.CVAR_ENABLE, "1")
+	link.tell(GSVoiceRouter.CVAR_ENABLE, "1")
 	_check(listener.server_enabled and told == [false, true], "the server turning it on reaches the manager (%s)" % str(told))
 	_check(not listener.follow_cvars(RefCounted.new()),
 		"a source that cannot replicate is refused, and voice stays as it was")
 	return listener
 
 
-func _switch_late(config: DotVoiceConfig) -> void:
+func _switch_late(config: GSVoiceConfig) -> void:
 	# Asked before the shell published its link: it waits for one.
-	var late := DotVoiceManager.new()
+	var late := GSVoiceManager.new()
 	late.name = "LateListener"
 	late.config = config
 	late.config_file = ""
@@ -547,10 +547,10 @@ func _switch_late(config: DotVoiceConfig) -> void:
 	add_child(late)
 	await get_tree().process_frame
 	var late_link := FakeLink.new()
-	late_link.values[DotVoiceRouter.CVAR_ENABLE] = "0"
+	late_link.values[GSVoiceRouter.CVAR_ENABLE] = "0"
 	_check(not late.follow_cvars(null) and late.server_enabled, "with no link yet it follows nothing")
-	DotRegistry.register(DotVoiceManager.LINK_SERVICE, late_link)
+	GSRegistry.register(GSVoiceManager.LINK_SERVICE, late_link)
 	_check(not late.server_enabled, "and follows the link the moment the shell publishes it")
-	DotRegistry.unregister_instance(DotVoiceManager.LINK_SERVICE, late_link)
+	GSRegistry.unregister_instance(GSVoiceManager.LINK_SERVICE, late_link)
 	late.queue_free()
 

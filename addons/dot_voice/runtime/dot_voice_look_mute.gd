@@ -1,5 +1,5 @@
 @tool
-class_name DotVoiceLookMute
+class_name GSVoiceLookMute
 extends Node
 
 ## Look at a player and press a key to stop hearing them: tap gags (voice), double-tap mutes (voice and chat via [member chat_mute_fn]).
@@ -21,8 +21,8 @@ const DEFAULT_MUTE_KEY := KEY_H
 signal gag_changed(speaker: int, gagged: bool)
 signal mute_changed(speaker: int, muted: bool)
 
-## The voice manager whose [member DotVoiceManager.gagged] this drives.
-var manager: DotVoiceManager = null
+## The voice manager whose [member GSVoiceManager.gagged] this drives.
+var manager: GSVoiceManager = null
 
 ## The peer id being looked at, or 0 for nobody: `func() -> int`. Required for the key to do anything.
 var target_fn: Callable = Callable()
@@ -123,16 +123,16 @@ func is_muted(speaker: int) -> bool:
 
 
 func set_gag(speaker: int, on: bool) -> void:
-	DotLog.debug(CHANNEL, "gag", {"speaker": speaker, "on": on})
+	GSLog.debug(CHANNEL, "gag", {"speaker": speaker, "on": on})
 	if manager != null:
 		manager.set_gag(speaker, on)
 	gag_changed.emit(speaker, on)
 
 
-## Voice and chat. Voice goes through the manager's [member DotVoiceManager.local_mutes],
+## Voice and chat. Voice goes through the manager's [member GSVoiceManager.local_mutes],
 ## which is what `sm` uses too, so the two features agree on who is muted.
 func set_muted(speaker: int, on: bool) -> void:
-	DotLog.debug(CHANNEL, "mute", {"speaker": speaker, "on": on})
+	GSLog.debug(CHANNEL, "mute", {"speaker": speaker, "on": on})
 	if on:
 		muted[speaker] = true
 	else:

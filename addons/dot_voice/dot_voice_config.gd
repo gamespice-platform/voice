@@ -1,6 +1,6 @@
 @tool
-class_name DotVoiceConfig
-extends DotConfig
+class_name GSVoiceConfig
+extends GSConfig
 
 ## Voice settings, layered: exported defaults < JSON file < environment < command line.
 ##
@@ -19,7 +19,7 @@ var sample_rate: int = 24000
 ## The latency/overhead trade: below 10 ms the header dominates, above 60 ms a lost packet is an audible hole.
 @export_range(10.0, 60.0, 10.0, "or_greater") var frame_ms: float = 20.0
 
-## Codec id, resolved by [method DotVoiceCodec.for_id].
+## Codec id, resolved by [method GSVoiceCodec.for_id].
 ##
 ## [code]pcm16[/code] is exact at 16 bits a sample; [code]adpcm[/code] (default) is a quarter of the bandwidth with slight hiss.
 @export var codec_id: StringName = &"adpcm"
@@ -28,7 +28,7 @@ var sample_rate: int = 24000
 
 ## How the microphone is opened.
 ##
-## Off by default on every platform: opening one because a node entered the tree records people who did not ask. The host calls [method DotVoiceManager.start_capture] once a player agrees.
+## Off by default on every platform: opening one because a node entered the tree records people who did not ask. The host calls [method GSVoiceManager.start_capture] once a player agrees.
 @export var capture_enabled: bool = false
 
 ## Hold a key to talk, rather than opening on volume.
@@ -103,48 +103,48 @@ func frames_per_second() -> float:
 
 ## Bytes one second of encoded audio takes, for a bandwidth estimate.
 func estimated_bytes_per_second() -> int:
-	var codec := DotVoiceCodec.for_id(codec_id)
+	var codec := GSVoiceCodec.for_id(codec_id)
 	if codec == null:
 		return 0
 	return int(codec.bytes_for(frame_samples()) * frames_per_second())
 
 
-func validate() -> DotResult:
+func validate() -> GSResult:
 	if sample_rate <= 0:
-		return DotResult.fail(DotError.CODE_INVALID, "sample_rate must be positive.")
+		return GSResult.fail(GSError.CODE_INVALID, "sample_rate must be positive.")
 
 	if frame_ms <= 0.0:
-		return DotResult.fail(DotError.CODE_INVALID, "frame_ms must be positive.")
+		return GSResult.fail(GSError.CODE_INVALID, "frame_ms must be positive.")
 
 	if frame_samples() <= 0:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"sample_rate and frame_ms produce a zero-length frame.",
 			"%d Hz at %.1f ms" % [sample_rate, frame_ms]
 		)
 
-	if DotVoiceCodec.for_id(codec_id) == null:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+	if GSVoiceCodec.for_id(codec_id) == null:
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"No codec with id '%s'." % codec_id,
-			"known: %s" % ", ".join(Array(DotVoiceCodec.known_ids()))
+			"known: %s" % ", ".join(Array(GSVoiceCodec.known_ids()))
 		)
 
 	if jitter_max_ms < jitter_ms:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"jitter_max_ms is below jitter_ms, so the buffer would drop what it just "
 			+ "buffered.",
 			"%.0f < %.0f" % [jitter_max_ms, jitter_ms]
 		)
 
 	if release_ratio > 1.0:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"release_ratio above 1 closes the gate above the level that opens it."
 		)
 
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
 ## What both ends must agree on, as one number.

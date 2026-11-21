@@ -30,8 +30,8 @@ func _check(condition: bool, what: String, detail: String = "") -> bool:
 	return condition
 
 
-func _config() -> DotVoiceConfig:
-	var config := DotVoiceConfig.new()
+func _config() -> GSVoiceConfig:
+	var config := GSVoiceConfig.new()
 	config.sample_rate = 24000
 	config.frame_ms = 20.0
 	config.codec_id = &"adpcm"
@@ -109,10 +109,10 @@ func _test_codec_round_trip() -> void:
 	_section("codecs")
 
 	var rate := 24000
-	var tone := DotVoiceSourceBuffer.tone(440.0, 0.02, rate, 0.5)
+	var tone := GSVoiceSourceBuffer.tone(440.0, 0.02, rate, 0.5)
 
 	for codec_id in ["pcm16", "adpcm"]:
-		var codec := DotVoiceCodec.instance_for(StringName(codec_id))
+		var codec := GSVoiceCodec.instance_for(StringName(codec_id))
 		if not _check(codec != null, "%s is registered" % codec_id):
 			continue
 
@@ -137,8 +137,8 @@ func _test_codec_round_trip() -> void:
 		)
 
 	# The point of shipping ADPCM at all, as a number rather than as a claim.
-	var pcm := DotVoiceCodec.for_id(&"pcm16")
-	var adpcm := DotVoiceCodec.for_id(&"adpcm")
+	var pcm := GSVoiceCodec.for_id(&"pcm16")
+	var adpcm := GSVoiceCodec.for_id(&"adpcm")
 	var ratio := float(pcm.bytes_for(480)) / float(adpcm.bytes_for(480))
 	_check(
 		ratio > 3.5,
@@ -161,13 +161,13 @@ func _test_codec_round_trip() -> void:
 func _test_codec_independence() -> void:
 	_section("two speakers cannot share one stateful decoder")
 
-	var a := DotVoiceCodec.instance_for(&"adpcm")
-	var b := DotVoiceCodec.instance_for(&"adpcm")
+	var a := GSVoiceCodec.instance_for(&"adpcm")
+	var b := GSVoiceCodec.instance_for(&"adpcm")
 
 	_check(a != b, "instance_for hands out a private codec for a stateful format")
 
-	var pcm_a := DotVoiceCodec.instance_for(&"pcm16")
-	var pcm_b := DotVoiceCodec.instance_for(&"pcm16")
+	var pcm_a := GSVoiceCodec.instance_for(&"pcm16")
+	var pcm_b := GSVoiceCodec.instance_for(&"pcm16")
 	_check(
 		pcm_a == pcm_b,
 		"and shares one for a stateless format, because there is nothing to interleave"
@@ -176,11 +176,11 @@ func _test_codec_independence() -> void:
 	# The failure the private instance prevents, measured. Two streams decoded through
 	# ONE adpcm codec interleave their predictors; through two they do not.
 	var rate := 24000
-	var loud := DotVoiceSourceBuffer.tone(300.0, 0.02, rate, 0.8)
-	var quiet := DotVoiceSourceBuffer.tone(300.0, 0.02, rate, 0.05)
+	var loud := GSVoiceSourceBuffer.tone(300.0, 0.02, rate, 0.8)
+	var quiet := GSVoiceSourceBuffer.tone(300.0, 0.02, rate, 0.05)
 
-	var enc_loud := DotVoiceCodec.instance_for(&"adpcm")
-	var enc_quiet := DotVoiceCodec.instance_for(&"adpcm")
+	var enc_loud := GSVoiceCodec.instance_for(&"adpcm")
+	var enc_quiet := GSVoiceCodec.instance_for(&"adpcm")
 
 	var frames_loud: Array[PackedByteArray] = []
 	var frames_quiet: Array[PackedByteArray] = []
@@ -188,13 +188,13 @@ func _test_codec_independence() -> void:
 		frames_loud.append(enc_loud.encode(loud))
 		frames_quiet.append(enc_quiet.encode(quiet))
 
-	var shared := DotVoiceCodec.instance_for(&"adpcm")
+	var shared := GSVoiceCodec.instance_for(&"adpcm")
 	var shared_error := 0.0
 	for i in range(4):
 		shared.decode(frames_loud[i], loud.size())
 		shared_error = _error_rms(quiet, shared.decode(frames_quiet[i], quiet.size()))
 
-	var separate := DotVoiceCodec.instance_for(&"adpcm")
+	var separate := GSVoiceCodec.instance_for(&"adpcm")
 	var separate_error := 0.0
 	for i in range(4):
 		separate_error = _error_rms(quiet, separate.decode(frames_quiet[i], quiet.size()))
@@ -211,27 +211,27 @@ func _test_codec_independence() -> void:
 func _test_packet_round_trip() -> void:
 	_section("the wire format")
 
-	var packet := DotVoicePacket.new()
+	var packet := GSVoicePacket.new()
 	packet.speaker = 4242
 	packet.sequence = 65000
 	packet.sample_count = 480
-	packet.channel = DotVoiceRouter.Channel.TEAM
+	packet.channel = GSVoiceRouter.Channel.TEAM
 	packet.codec_id = &"adpcm"
 	packet.starts_talk_spurt = true
 	packet.payload = PackedByteArray([1, 2, 3, 4, 5])
 
-	var parsed := DotVoicePacket.from_bytes(packet.to_bytes())
+	var parsed := GSVoicePacket.from_bytes(packet.to_bytes())
 
 	if not _check(parsed.ok, "a packet parses back", str(parsed.error)):
 		_done()
 		return
 
-	var back: DotVoicePacket = parsed.value
+	var back: GSVoicePacket = parsed.value
 
 	_check(back.speaker == 4242, "speaker survives (%d)" % back.speaker)
 	_check(back.sequence == 65000, "sequence survives (%d)" % back.sequence)
 	_check(back.sample_count == 480, "sample count survives")
-	_check(back.channel == DotVoiceRouter.Channel.TEAM, "channel survives")
+	_check(back.channel == GSVoiceRouter.Channel.TEAM, "channel survives")
 	_check(back.codec_id == &"adpcm", "codec survives (%s)" % back.codec_id)
 	_check(
 		back.starts_talk_spurt,
@@ -242,13 +242,13 @@ func _test_packet_round_trip() -> void:
 
 	# A codec that is not one of the two built in still travels, just with a longer
 	# header. Otherwise a project shipping an Opus GDExtension could not use this at all.
-	var custom := DotVoicePacket.new()
+	var custom := GSVoicePacket.new()
 	custom.sample_count = 480
 	custom.codec_id = &"opus"
 	custom.payload = PackedByteArray([9, 9])
-	var custom_back := DotVoicePacket.from_bytes(custom.to_bytes())
+	var custom_back := GSVoicePacket.from_bytes(custom.to_bytes())
 	_check(
-		custom_back.ok and (custom_back.value as DotVoicePacket).codec_id == &"opus",
+		custom_back.ok and (custom_back.value as GSVoicePacket).codec_id == &"opus",
 		"a codec this build does not ship still round-trips its name"
 	)
 	_done()
@@ -258,60 +258,60 @@ func _test_packet_refusals() -> void:
 	_section("what the wire format refuses")
 
 	_check(
-		not DotVoicePacket.from_bytes(PackedByteArray([1, 2, 3])).ok,
+		not GSVoicePacket.from_bytes(PackedByteArray([1, 2, 3])).ok,
 		"a packet shorter than its header"
 	)
 
-	var future := DotVoicePacket.new()
+	var future := GSVoicePacket.new()
 	future.sample_count = 480
 	var bytes := future.to_bytes()
-	bytes.encode_u8(DotVoicePacket.OFFSET_VERSION, 99)
+	bytes.encode_u8(GSVoicePacket.OFFSET_VERSION, 99)
 	_check(
-		not DotVoicePacket.from_bytes(bytes).ok,
+		not GSVoicePacket.from_bytes(bytes).ok,
 		"a version this build does not read",
 		"the version byte is first so a future format is refused, not misread"
 	)
 
 	# The allocation guard. A packet claiming a million samples is a bug or an attempt to
 	# make the receiver allocate on an attacker's say-so.
-	var huge := DotVoicePacket.new()
+	var huge := GSVoicePacket.new()
 	huge.sample_count = 480
 	var huge_bytes := huge.to_bytes()
-	huge_bytes.encode_u16(DotVoicePacket.OFFSET_SAMPLE_COUNT, 60000)
+	huge_bytes.encode_u16(GSVoicePacket.OFFSET_SAMPLE_COUNT, 60000)
 	_check(
-		not DotVoicePacket.from_bytes(huge_bytes, 2000).ok,
+		not GSVoicePacket.from_bytes(huge_bytes, 2000).ok,
 		"a frame length beyond the limit is refused rather than clamped"
 	)
 
-	var zero := DotVoicePacket.new()
+	var zero := GSVoicePacket.new()
 	zero.sample_count = 480
 	var zero_bytes := zero.to_bytes()
-	zero_bytes.encode_u16(DotVoicePacket.OFFSET_SAMPLE_COUNT, 0)
-	_check(not DotVoicePacket.from_bytes(zero_bytes).ok, "and so is a zero-length frame")
+	zero_bytes.encode_u16(GSVoicePacket.OFFSET_SAMPLE_COUNT, 0)
+	_check(not GSVoicePacket.from_bytes(zero_bytes).ok, "and so is a zero-length frame")
 
-	var bad_codec := DotVoicePacket.new()
+	var bad_codec := GSVoicePacket.new()
 	bad_codec.sample_count = 480
 	var bad_bytes := bad_codec.to_bytes()
-	bad_bytes.encode_u8(DotVoicePacket.OFFSET_CODEC, 7)
+	bad_bytes.encode_u8(GSVoicePacket.OFFSET_CODEC, 7)
 	_check(
-		not DotVoicePacket.from_bytes(bad_bytes).ok,
+		not GSVoicePacket.from_bytes(bad_bytes).ok,
 		"and a codec slot that does not exist"
 	)
 
 	# A speaker id that does not fit in 16 bits: Godot peer ids are 31-bit, so this is every
 	# real peer. Version 1 masked to 16 bits and merged two players into one noisy speaker.
-	var far := DotVoicePacket.new()
+	var far := GSVoicePacket.new()
 	far.speaker = 1399616023
 	far.sample_count = 480
 	far.payload = PackedByteArray()
 	far.payload.resize(240)
 
-	var round_tripped := DotVoicePacket.from_bytes(far.to_bytes())
+	var round_tripped := GSVoicePacket.from_bytes(far.to_bytes())
 	_check(round_tripped.ok, "a packet from a real peer id parses")
 	_check(
-		round_tripped.ok and (round_tripped.value as DotVoicePacket).speaker == far.speaker,
+		round_tripped.ok and (round_tripped.value as GSVoicePacket).speaker == far.speaker,
 		"and its speaker survives the wire (%d)"
-			% ((round_tripped.value as DotVoicePacket).speaker if round_tripped.ok else -1),
+			% ((round_tripped.value as GSVoicePacket).speaker if round_tripped.ok else -1),
 		"a 16-bit speaker field is two players sharing one voice"
 	)
 	_done()
@@ -320,33 +320,33 @@ func _test_packet_refusals() -> void:
 func _test_sequence_wrap() -> void:
 	_section("sequence numbers wrap, and a naive subtraction is wrong")
 
-	_check(DotVoicePacket.sequence_delta(10, 5) == 5, "an ordinary gap forward")
-	_check(DotVoicePacket.sequence_delta(5, 10) == -5, "and backward")
+	_check(GSVoicePacket.sequence_delta(10, 5) == 5, "an ordinary gap forward")
+	_check(GSVoicePacket.sequence_delta(5, 10) == -5, "and backward")
 
 	# The one that matters. Frame 0 arriving after frame 65535 is ONE later, not 65535
 	# earlier, and a jitter buffer that gets this wrong discards a speaker for eleven
 	# minutes once every twenty.
 	_check(
-		DotVoicePacket.sequence_delta(0, 65535) == 1,
+		GSVoicePacket.sequence_delta(0, 65535) == 1,
 		"0 after 65535 is one frame later (%d)"
-			% DotVoicePacket.sequence_delta(0, 65535)
+			% GSVoicePacket.sequence_delta(0, 65535)
 	)
 	_check(
-		DotVoicePacket.sequence_delta(65535, 0) == -1,
+		GSVoicePacket.sequence_delta(65535, 0) == -1,
 		"and 65535 after 0 is one earlier (%d)"
-			% DotVoicePacket.sequence_delta(65535, 0)
+			% GSVoicePacket.sequence_delta(65535, 0)
 	)
-	_check(DotVoicePacket.sequence_delta(3, 65533) == 6, "and across the boundary")
+	_check(GSVoicePacket.sequence_delta(3, 65533) == 6, "and across the boundary")
 	_done()
 
 
 func _test_gate_push_to_talk() -> void:
 	_section("the gate, holding a key")
 
-	var gate := DotVoiceGate.new()
+	var gate := GSVoiceGate.new()
 	gate.push_to_talk = true
 
-	var loud := DotVoiceSourceBuffer.tone(300.0, 0.02, 24000, 0.9)
+	var loud := GSVoiceSourceBuffer.tone(300.0, 0.02, 24000, 0.9)
 
 	_check(not gate.evaluate(loud, 20.0), "shouting does not transmit when not pressed")
 
@@ -360,7 +360,7 @@ func _test_gate_push_to_talk() -> void:
 	gate.evaluate(loud, 20.0)
 	_check(not gate.is_spurt_start(), "and the second frame is not")
 
-	var quiet := DotVoiceSourceBuffer.silence(0.02, 24000)
+	var quiet := GSVoiceSourceBuffer.silence(0.02, 24000)
 	_check(
 		gate.evaluate(quiet, 20.0),
 		"silence still transmits while the key is down",
@@ -375,17 +375,17 @@ func _test_gate_push_to_talk() -> void:
 func _test_gate_activation() -> void:
 	_section("the gate, opening on level")
 
-	var gate := DotVoiceGate.new()
+	var gate := GSVoiceGate.new()
 	gate.push_to_talk = false
 	gate.activation_rms = 0.1
 	gate.release_ratio = 0.6
 	gate.hangover_ms = 100.0
 
 	var rate := 24000
-	var loud := DotVoiceSourceBuffer.tone(300.0, 0.02, rate, 0.5)
-	var quiet := DotVoiceSourceBuffer.silence(0.02, rate)
+	var loud := GSVoiceSourceBuffer.tone(300.0, 0.02, rate, 0.5)
+	var quiet := GSVoiceSourceBuffer.silence(0.02, rate)
 	# Between the open threshold and the release threshold: 0.1 * 0.6 = 0.06.
-	var between := DotVoiceSourceBuffer.tone(300.0, 0.02, rate, 0.11)
+	var between := GSVoiceSourceBuffer.tone(300.0, 0.02, rate, 0.11)
 
 	_check(not gate.evaluate(quiet, 20.0), "silence does not open it")
 	_check(gate.evaluate(loud, 20.0), "speech does")
@@ -416,7 +416,7 @@ func _test_gate_activation() -> void:
 
 	# Silence, from a gate that has never opened, must never have been flagged as a
 	# spurt start: that flag resets a receiver's timeline.
-	var fresh := DotVoiceGate.new()
+	var fresh := GSVoiceGate.new()
 	fresh.push_to_talk = false
 	fresh.activation_rms = 0.1
 	fresh.evaluate(quiet, 20.0)
@@ -427,8 +427,8 @@ func _test_gate_activation() -> void:
 func _test_jitter_ordering() -> void:
 	_section("the jitter buffer puts frames back in order")
 
-	var codec := DotVoiceCodec.instance_for(&"pcm16")
-	var jitter := DotVoiceJitter.new(4, codec)
+	var codec := GSVoiceCodec.instance_for(&"pcm16")
+	var jitter := GSVoiceJitter.new(4, codec)
 	jitter.target_frames = 2
 	jitter.max_frames = 10
 
@@ -443,7 +443,7 @@ func _test_jitter_ordering() -> void:
 
 	# Delivered out of order, which is what UDP does.
 	for order in [0, 2, 1, 4, 3, 5]:
-		var packet := DotVoicePacket.new()
+		var packet := GSVoicePacket.new()
 		packet.sequence = order
 		packet.sample_count = 4
 		packet.codec_id = &"pcm16"
@@ -467,10 +467,10 @@ func _test_jitter_ordering() -> void:
 
 	# Starting takes target_frames; continuing takes one. A buffer that re-applied the
 	# start condition every frame would stall for the whole target on every late packet.
-	var strict := DotVoiceJitter.new(4, DotVoiceCodec.instance_for(&"pcm16"))
+	var strict := GSVoiceJitter.new(4, GSVoiceCodec.instance_for(&"pcm16"))
 	strict.target_frames = 3
 	for i in range(2):
-		var p := DotVoicePacket.new()
+		var p := GSVoicePacket.new()
 		p.sequence = i
 		p.sample_count = 4
 		p.codec_id = &"pcm16"
@@ -483,8 +483,8 @@ func _test_jitter_ordering() -> void:
 func _test_jitter_loss_and_overflow() -> void:
 	_section("what the jitter buffer does about loss and about growth")
 
-	var codec := DotVoiceCodec.instance_for(&"pcm16")
-	var jitter := DotVoiceJitter.new(4, codec)
+	var codec := GSVoiceCodec.instance_for(&"pcm16")
+	var jitter := GSVoiceJitter.new(4, codec)
 	jitter.target_frames = 1
 	jitter.max_frames = 4
 
@@ -494,7 +494,7 @@ func _test_jitter_loss_and_overflow() -> void:
 
 	# Sequence 1 never arrives.
 	for order in [0, 2, 3]:
-		var packet := DotVoicePacket.new()
+		var packet := GSVoicePacket.new()
 		packet.sequence = order
 		packet.sample_count = 4
 		packet.codec_id = &"pcm16"
@@ -518,7 +518,7 @@ func _test_jitter_loss_and_overflow() -> void:
 	)
 
 	# A frame older than the play head has missed its moment.
-	var late := DotVoicePacket.new()
+	var late := GSVoicePacket.new()
 	late.sequence = 0
 	late.sample_count = 4
 	late.codec_id = &"pcm16"
@@ -527,7 +527,7 @@ func _test_jitter_loss_and_overflow() -> void:
 	_check(jitter.dropped_late == 1, "and counted")
 
 	# A duplicate is a retransmit, not a second frame.
-	var dup := DotVoicePacket.new()
+	var dup := GSVoicePacket.new()
 	dup.sequence = 3
 	dup.sample_count = 4
 	dup.codec_id = &"pcm16"
@@ -538,7 +538,7 @@ func _test_jitter_loss_and_overflow() -> void:
 	_check_overflow(codec, loud)
 
 	# A frame of the wrong length is a format disagreement, not audio.
-	var wrong := DotVoicePacket.new()
+	var wrong := GSVoicePacket.new()
 	wrong.sequence = 99
 	wrong.sample_count = 960
 	wrong.codec_id = &"pcm16"
@@ -548,13 +548,13 @@ func _test_jitter_loss_and_overflow() -> void:
 
 
 ## A sender arriving faster than real time: the buffer holds its ceiling and counts the rest.
-func _check_overflow(codec: DotVoiceCodec, loud: PackedFloat32Array) -> void:
+func _check_overflow(codec: GSVoiceCodec, loud: PackedFloat32Array) -> void:
 	# Growth. A sender arriving faster than real time would otherwise add delay for ever.
-	var flood := DotVoiceJitter.new(4, DotVoiceCodec.instance_for(&"pcm16"))
+	var flood := GSVoiceJitter.new(4, GSVoiceCodec.instance_for(&"pcm16"))
 	flood.target_frames = 1
 	flood.max_frames = 3
 	for i in range(20):
-		var p := DotVoicePacket.new()
+		var p := GSVoicePacket.new()
 		p.sequence = i
 		p.sample_count = 4
 		p.codec_id = &"pcm16"

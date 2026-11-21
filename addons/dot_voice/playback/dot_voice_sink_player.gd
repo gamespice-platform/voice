@@ -1,13 +1,13 @@
 @tool
-class_name DotVoiceSinkPlayer
-extends DotVoiceSink
+class_name GSVoiceSinkPlayer
+extends GSVoiceSink
 
 ## Plays audio through an [AudioStreamGenerator], optionally positioned in the world.
 ##
 ## One per speaker: a generator mixes one stream. [code]push_buffer[/code] silently drops what does not fit, so check [method can_accept] first and hold the frame.
 
 # No log channel: an audio sink written to once per voice frame. A failed start() is
-# returned and DotVoiceManager WARNs it with the speaker; an overrun is prevented by the
+# returned and GSVoiceManager WARNs it with the speaker; an overrun is prevented by the
 # can_accept() check above and counted as skips in describe(), not a line per frame.
 
 ## Seconds the generator buffers. Bigger survives a frame hitch and costs latency.
@@ -38,13 +38,13 @@ func _init(p_host: Node = null, p_sample_rate: int = 24000) -> void:
 	sample_rate = p_sample_rate
 
 
-func start() -> DotResult:
+func start() -> GSResult:
 	if _running:
-		return DotResult.success(true)
+		return GSResult.success(true)
 
 	if host == null:
-		return DotResult.fail(
-			DotError.CODE_STATE, "A voice sink needs a host node to put its player under."
+		return GSResult.fail(
+			GSError.CODE_STATE, "A voice sink needs a host node to put its player under."
 		)
 
 	var generator := AudioStreamGenerator.new()
@@ -74,7 +74,7 @@ func start() -> DotResult:
 	if AudioServer.get_bus_index(bus) >= 0:
 		_player.set(&"bus", bus)
 
-	_player.name = "DotVoicePlayback"
+	_player.name = "GSVoicePlayback"
 	host.add_child(_player)
 	_player.call("play")
 
@@ -82,13 +82,13 @@ func start() -> DotResult:
 
 	if _playback == null:
 		stop()
-		return DotResult.fail(
-			DotError.CODE_INTERNAL,
+		return GSResult.fail(
+			GSError.CODE_INTERNAL,
 			"The audio generator gave no playback to push into."
 		)
 
 	_running = true
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
 func stop() -> void:

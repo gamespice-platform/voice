@@ -2,7 +2,7 @@ extends Node
 
 ## The device layer the headless suite cannot reach, on a real audio device (tools/voice_device_probe.sh, under xvfb-run).
 ##
-## Runs [DotVoiceSourceMicrophone] and [DotVoiceSinkPlayer] with the router and two clients over WebSockets on 127.0.0.1, playing a tone into the capture bus ([member DotVoiceSourceMicrophone.input_stream]) because ALSA has no input. It measures the far-end pitch, not only loudness: a wrong mix rate is loud but chipmunk. Exit 0 heard, 1 silent or wrong, 2 no audio device.
+## Runs [GSVoiceSourceMicrophone] and [GSVoiceSinkPlayer] with the router and two clients over WebSockets on 127.0.0.1, playing a tone into the capture bus ([member GSVoiceSourceMicrophone.input_stream]) because ALSA has no input. It measures the far-end pitch, not only loudness: a wrong mix rate is loud but chipmunk. Exit 0 heard, 1 silent or wrong, 2 no audio device.
 
 const TONE_HZ := 440.0
 const SECONDS := 3.0
@@ -11,7 +11,7 @@ var _failed := 0
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.WARN)
+	GSLog.set_level(GSLog.Level.WARN)
 	_run.call_deferred()
 
 
@@ -29,7 +29,7 @@ func _run() -> void:
 		get_tree().quit(2)
 		return
 
-	var config := DotVoiceConfig.new()
+	var config := GSVoiceConfig.new()
 	config.push_to_talk = true
 
 	# The wire: a WebSocket server and two clients, as a browser would connect.
@@ -66,7 +66,7 @@ func _run() -> void:
 
 	var ids: Array[int] = [1_900_000_001, 2_000_000_002]
 	var by_id := {ids[0]: accepted[0], ids[1]: accepted[1]}
-	var router := DotVoiceRouter.new()
+	var router := GSVoiceRouter.new()
 	router.config = config
 	router.max_bytes_per_second = 0
 	router.send_fn = func(peer: int, bytes: PackedByteArray) -> void: var _e: int = (by_id[peer] as WebSocketPeer).send(bytes)
@@ -75,29 +75,29 @@ func _run() -> void:
 		router.add_peer(id)
 
 	# The talker: the real capture path, fed a tone instead of a microphone.
-	var talker := DotVoiceManager.new()
+	var talker := GSVoiceManager.new()
 	talker.name = "Talker"
 	talker.config = config
 	talker.config_file = ""
 	talker.register_service = false
 	add_child(talker)
-	var mic := DotVoiceSourceMicrophone.new(talker, config.sample_rate)
+	var mic := GSVoiceSourceMicrophone.new(talker, config.sample_rate)
 	mic.input_stream = _tone_stream(TONE_HZ, int(AudioServer.get_mix_rate()))
 	talker.source = mic
 	talker.send_fn = func(b: PackedByteArray) -> void: var _e := clients[0].send(b)
 
 	# The listener: the real player sink, with a recorder beside it.
-	var listener := DotVoiceManager.new()
+	var listener := GSVoiceManager.new()
 	listener.name = "Listener"
 	listener.config = config
 	listener.config_file = ""
 	listener.register_service = false
 	add_child(listener)
-	var players: Array[DotVoiceSinkPlayer] = []
-	var heard := DotVoiceSinkBuffer.new()
+	var players: Array[GSVoiceSinkPlayer] = []
+	var heard := GSVoiceSinkBuffer.new()
 	heard.sample_rate = config.sample_rate
-	listener.sink_factory = func(_speaker: int) -> DotVoiceSink:
-		var player := DotVoiceSinkPlayer.new(listener, config.sample_rate)
+	listener.sink_factory = func(_speaker: int) -> GSVoiceSink:
+		var player := GSVoiceSinkPlayer.new(listener, config.sample_rate)
 		players.append(player)
 		return Tee.new(player, heard)
 	await get_tree().process_frame
@@ -180,13 +180,13 @@ static func _pitch(samples: PackedFloat32Array, rate: int) -> float:
 
 ## Plays through one sink and records through another.
 class Tee:
-	extends DotVoiceSink
-	var a: DotVoiceSink
-	var b: DotVoiceSink
-	func _init(p_a: DotVoiceSink, p_b: DotVoiceSink) -> void:
+	extends GSVoiceSink
+	var a: GSVoiceSink
+	var b: GSVoiceSink
+	func _init(p_a: GSVoiceSink, p_b: GSVoiceSink) -> void:
 		a = p_a
 		b = p_b
-	func start() -> DotResult:
+	func start() -> GSResult:
 		var s := a.start()
 		var _t := b.start()
 		return s

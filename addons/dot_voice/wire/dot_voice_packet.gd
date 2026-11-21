@@ -1,5 +1,5 @@
 @tool
-class_name DotVoicePacket
+class_name GSVoicePacket
 extends RefCounted
 
 ## One frame of encoded speech. Header layout in docs/design.md (wire format); offsets are the [code]OFFSET_*[/code] constants.
@@ -34,7 +34,7 @@ var sequence: int = 0
 ## Samples in the decoded frame.
 var sample_count: int = 0
 
-## Which channel this was spoken on. See [DotVoiceRouter].
+## Which channel this was spoken on. See [GSVoiceRouter].
 var channel: int = 0
 
 var codec_id: StringName = &"adpcm"
@@ -101,23 +101,23 @@ func to_bytes() -> PackedByteArray:
 ## Parses bytes off the wire.
 ##
 ## Every field is bounds-checked: this is attacker-controlled input and a declared sample count must not drive an allocation.
-static func from_bytes(bytes: PackedByteArray, max_samples: int = 4096) -> DotResult:
+static func from_bytes(bytes: PackedByteArray, max_samples: int = 4096) -> GSResult:
 	if bytes.size() < HEADER_BYTES:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"A voice packet is shorter than its header.",
 			"%d bytes" % bytes.size()
 		)
 
 	var version := bytes.decode_u8(OFFSET_VERSION)
 	if version != VERSION:
-		return DotResult.fail(
-			DotError.CODE_UNSUPPORTED,
+		return GSResult.fail(
+			GSError.CODE_UNSUPPORTED,
 			"This voice packet is a format this build does not read.",
 			"got version %d, expected %d" % [version, VERSION]
 		)
 
-	var packet := DotVoicePacket.new()
+	var packet := GSVoicePacket.new()
 	var flags := bytes.decode_u8(OFFSET_FLAGS)
 	packet.starts_talk_spurt = (flags & FLAG_START) != 0
 	var steps := flags >> GAIN_SHIFT
@@ -131,8 +131,8 @@ static func from_bytes(bytes: PackedByteArray, max_samples: int = 4096) -> DotRe
 		# A packet claiming a million samples is either a bug or an attempt to make the
 		# receiver allocate. Refused rather than clamped: a clamp would decode it as
 		# something, and something is worse than nothing here.
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"A voice packet declares an unreasonable frame length.",
 			"%d samples, limit %d" % [packet.sample_count, max_samples]
 		)
@@ -142,14 +142,14 @@ static func from_bytes(bytes: PackedByteArray, max_samples: int = 4096) -> DotRe
 
 	if codec_index == CODEC_EXTENDED:
 		if bytes.size() < at + 1:
-			return DotResult.fail(
-				DotError.CODE_INVALID, "A voice packet's codec name is truncated."
+			return GSResult.fail(
+				GSError.CODE_INVALID, "A voice packet's codec name is truncated."
 			)
 		var name_length := bytes.decode_u8(at)
 		at += 1
 		if bytes.size() < at + name_length:
-			return DotResult.fail(
-				DotError.CODE_INVALID, "A voice packet's codec name is truncated."
+			return GSResult.fail(
+				GSError.CODE_INVALID, "A voice packet's codec name is truncated."
 			)
 		packet.codec_id = StringName(
 			bytes.slice(at, at + name_length).get_string_from_utf8()
@@ -158,15 +158,15 @@ static func from_bytes(bytes: PackedByteArray, max_samples: int = 4096) -> DotRe
 	elif codec_index < CODEC_IDS.size():
 		packet.codec_id = StringName(CODEC_IDS[codec_index])
 	else:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"A voice packet names a codec slot that does not exist.",
 			"slot %d" % codec_index
 		)
 
 	packet.payload = bytes.slice(at)
 
-	return DotResult.success(packet)
+	return GSResult.success(packet)
 
 
 ## Distance from [param earlier] to this packet's sequence, accounting for the 16-bit wrap.

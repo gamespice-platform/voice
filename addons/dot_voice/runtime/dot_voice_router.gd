@@ -1,10 +1,10 @@
 @tool
-class_name DotVoiceRouter
+class_name GSVoiceRouter
 extends Node
 
 ## The server's half: who is allowed to talk, and who hears them. Every decision is made here, because a client cannot be trusted to mute another.
 ##
-## Mute is checked before relaying (distinct from [member DotVoiceManager.local_mutes], a preference), the rate limit stops voice being a bandwidth amplifier, and the speaker id is stamped from the transport's sender so nobody can impersonate. Muting is duck-typed through [DotRegistry] ([code]is_voice_muted(speaker) -> bool[/code]), so no GameSpice Server or GameSpice Moderation dependency.
+## Mute is checked before relaying (distinct from [member GSVoiceManager.local_mutes], a preference), the rate limit stops voice being a bandwidth amplifier, and the speaker id is stamped from the transport's sender so nobody can impersonate. Muting is duck-typed through [GSRegistry] ([code]is_voice_muted(speaker) -> bool[/code]), so no GameSpice Server or GameSpice Moderation dependency.
 
 const CHANNEL := "voice.router"
 const SERVICE := &"dot_voice_router"
@@ -18,7 +18,7 @@ enum Channel {
 	ALL = 0,
 	## Everybody on the speaker's team.
 	TEAM = 1,
-	## Everybody within [member DotVoiceConfig.proximity_range].
+	## Everybody within [member GSVoiceConfig.proximity_range].
 	PROXIMITY = 2,
 	## Nobody but the listeners a game names itself, through [member listener_filter].
 	CUSTOM = 3,
@@ -35,7 +35,7 @@ const CVAR_MODE := "sv_voice_mode"
 ## [constant CVAR_MODE]'s values, in order. Index 0 is "the game decides".
 const MODES: Array[int] = [-1, Channel.ALL, Channel.TEAM, Channel.PROXIMITY]
 
-## Proximity cvars. Range in metres; minimum distance is the full-volume radius; falloff is a [enum DotVoiceProximity.Falloff];
+## Proximity cvars. Range in metres; minimum distance is the full-volume radius; falloff is a [enum GSVoiceProximity.Falloff];
 ## occlusion quiets a wall ([member occlusion_gain]); the bypasses exempt team or global channels (needs [member honour_packet_channel]).
 const CVAR_PROX_RANGE := "sv_voice_proximity_range"
 const CVAR_PROX_MIN := "sv_voice_proximity_min"
@@ -74,7 +74,7 @@ signal speech_relayed(speaker: int, listeners: int)
 ## each channel reaches, and [member forced_channel] still wins.
 @export var honour_packet_channel: bool = false
 
-## Metres a proximity packet carries. Mirrors [member DotVoiceConfig.proximity_range].
+## Metres a proximity packet carries. Mirrors [member GSVoiceConfig.proximity_range].
 @export_range(0.0, 500.0, 1.0, "or_greater") var proximity_range: float = 40.0
 
 @export_group("Proximity")
@@ -83,7 +83,7 @@ signal speech_relayed(speaker: int, listeners: int)
 @export_range(0.0, 100.0, 0.5, "or_greater") var proximity_min_distance: float = 2.0
 
 ## How loudness falls between the minimum distance and [member proximity_range].
-@export var proximity_falloff: DotVoiceProximity.Falloff = DotVoiceProximity.Falloff.INVERSE
+@export var proximity_falloff: GSVoiceProximity.Falloff = GSVoiceProximity.Falloff.INVERSE
 
 ## Whether [member occlusion_fn] is asked. Off by default: it is a ray per listener in range.
 @export var proximity_occlusion: bool = false
@@ -111,7 +111,7 @@ signal speech_relayed(speaker: int, listeners: int)
 @export_range(0.25, 10.0, 0.25, "or_greater") var rate_window_sec: float = 1.0
 
 ## Config, so the router knows the expected frame format.
-var config: DotVoiceConfig = null
+var config: GSVoiceConfig = null
 
 ## Sends one packet's bytes to one peer. Set by the host, exactly like GameSpice Net's.
 ##
@@ -133,7 +133,7 @@ var can_hear_fn: Callable = Callable()
 var listener_filter: Callable = Callable()
 
 ## Whether a wall is between two points, for [member proximity_occlusion]: [code]func(listener_at: Vector3, speaker_at: Vector3) -> bool[/code].
-## Softer than [member can_hear_fn]: it only turns the voice down. [method DotVoiceProximity.ray_occluder] makes one.
+## Softer than [member can_hear_fn]: it only turns the voice down. [method GSVoiceProximity.ray_occluder] makes one.
 var occlusion_fn: Callable = Callable()
 
 ## listener -> gain for the packet being relayed. Rebuilt per packet; empty means full.
@@ -161,11 +161,11 @@ var _muted: Dictionary = {}
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		return
-	DotRegistry.register(SERVICE, self)
+	GSRegistry.register(SERVICE, self)
 
 
 func _exit_tree() -> void:
-	DotRegistry.unregister_instance(SERVICE, self)
+	GSRegistry.unregister_instance(SERVICE, self)
 
 
 
@@ -197,7 +197,7 @@ func set_muted(speaker: int, muted: bool) -> void:
 ##
 ## Asks the registered mute source first, then the local set.
 func is_muted(speaker: int) -> bool:
-	var source := DotRegistry.get_service(MUTE_SERVICE)
+	var source := GSRegistry.get_service(MUTE_SERVICE)
 
 	if source != null and source.has_method("is_voice_muted"):
 		return bool(source.call("is_voice_muted", speaker))
@@ -209,29 +209,29 @@ func is_muted(speaker: int) -> bool:
 ## Takes a packet from [param from_peer] and relays it to whoever should hear it.
 ##
 ## [param from_peer] is the transport's sender, never the packet's claim. Returns the listener count, or a failure.
-func relay(from_peer: int, bytes: PackedByteArray) -> DotResult:
+func relay(from_peer: int, bytes: PackedByteArray) -> GSResult:
 	if not enabled:
 		refused_disabled += 1
 		speech_refused.emit(from_peer, "disabled")
-		return DotResult.success(0)
+		return GSResult.success(0)
 
 	var max_samples := config.frame_samples() * 4 if config != null else 4096
-	var parsed := DotVoicePacket.from_bytes(bytes, max_samples)
+	var parsed := GSVoicePacket.from_bytes(bytes, max_samples)
 
 	if not parsed.ok:
 		refused_format += 1
 		speech_refused.emit(from_peer, "format")
 		return parsed
 
-	var packet: DotVoicePacket = parsed.value
+	var packet: GSVoicePacket = parsed.value
 
 	_stamp(packet, from_peer)
 
 	if config != null and packet.sample_count != config.frame_samples():
 		refused_format += 1
 		speech_refused.emit(from_peer, "format")
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"A voice packet is not this server's frame length.",
 			"%d samples, expected %d" % [packet.sample_count, config.frame_samples()]
 		)
@@ -242,13 +242,13 @@ func relay(from_peer: int, bytes: PackedByteArray) -> DotResult:
 		# Not an error the sender is told about. A muted player who is told they are
 		# muted on every frame is a player being spammed fifty times a second, and a
 		# muted player who can measure the refusal knows exactly when a moderator acted.
-		return DotResult.success(0)
+		return GSResult.success(0)
 
 	if not _within_rate(from_peer, bytes.size()):
 		refused_rate += 1
 		speech_refused.emit(from_peer, "rate")
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN,
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN,
 			"A client is sending voice faster than the server relays it.",
 			"peer %d" % from_peer
 		)
@@ -266,11 +266,11 @@ func relay(from_peer: int, bytes: PackedByteArray) -> DotResult:
 	relayed_bytes += payload.size() * listeners.size()
 	speech_relayed.emit(from_peer, listeners.size())
 
-	return DotResult.success(listeners.size())
+	return GSResult.success(listeners.size())
 
 
 ## Stamps the sender and the server's gain and channel policy onto [param packet].
-func _stamp(packet: DotVoicePacket, from_peer: int) -> void:
+func _stamp(packet: GSVoicePacket, from_peer: int) -> void:
 	# [b]Stamped, not trusted.[/b] Whatever the client put in the speaker field is
 	# discarded and replaced with who actually sent it. Without this any client can put
 	# words in any other player's mouth, and the only symptom is confusion.
@@ -294,11 +294,11 @@ func _stamp(packet: DotVoicePacket, from_peer: int) -> void:
 
 
 ## Sends [param payload] to each listener of [param packet], quieter ones patched in a copy; returns the listeners.
-func _deliver(packet: DotVoicePacket, payload: PackedByteArray) -> PackedInt64Array:
+func _deliver(packet: GSVoicePacket, payload: PackedByteArray) -> PackedInt64Array:
 	var listeners := _listeners_for(packet)
 
 	if send_fn.is_valid():
-		var flags_at := DotVoicePacket.OFFSET_FLAGS
+		var flags_at := GSVoicePacket.OFFSET_FLAGS
 		for listener in listeners:
 			var gain: float = float(_gains.get(int(listener), 1.0))
 			if gain >= 1.0:
@@ -306,12 +306,12 @@ func _deliver(packet: DotVoicePacket, payload: PackedByteArray) -> PackedInt64Ar
 			else:
 				# Patched in a copy rather than re-encoding the frame per listener.
 				var quiet := payload.duplicate()
-				quiet.encode_u8(flags_at, quiet.decode_u8(flags_at) | DotVoicePacket.gain_bits(gain))
+				quiet.encode_u8(flags_at, quiet.decode_u8(flags_at) | GSVoicePacket.gain_bits(gain))
 				send_fn.call(int(listener), quiet)
 	return listeners
 
 
-func _listeners_for(packet: DotVoicePacket) -> PackedInt64Array:
+func _listeners_for(packet: GSVoicePacket) -> PackedInt64Array:
 	var out := PackedInt64Array()
 
 	match packet.channel:
@@ -329,7 +329,7 @@ func _listeners_for(packet: DotVoicePacket) -> PackedInt64Array:
 			if not team_fn.is_valid():
 				# No way to tell teams apart: reach nobody rather than leak a team channel to the
 				# other team, which sounds exactly like working.
-				DotLog.warn(CHANNEL, "a team packet arrived with no team_fn set")
+				GSLog.warn(CHANNEL, "a team packet arrived with no team_fn set")
 				return out
 
 			var speaker_team: Variant = team_fn.call(packet.speaker)
@@ -342,7 +342,7 @@ func _listeners_for(packet: DotVoicePacket) -> PackedInt64Array:
 
 		Channel.PROXIMITY:
 			if not position_fn.is_valid():
-				DotLog.warn(CHANNEL, "a proximity packet arrived with no position_fn set")
+				GSLog.warn(CHANNEL, "a proximity packet arrived with no position_fn set")
 				return out
 
 			var origin: Variant = position_fn.call(packet.speaker)
@@ -366,7 +366,7 @@ func _listeners_for(packet: DotVoicePacket) -> PackedInt64Array:
 					can_hear_fn.call(int(peer), packet.speaker, at, origin)
 				):
 					continue
-				var level := DotVoiceProximity.gain(
+				var level := GSVoiceProximity.gain(
 					(at as Vector3).distance_to(origin as Vector3), proximity_range,
 					proximity_min_distance, proximity_falloff
 				)
@@ -469,7 +469,7 @@ func cvar_specs() -> Array[Dictionary]:
 
 ## Registers [constant CVAR_ENABLE] and [constant CVAR_MODE] through [param add] (a server module's [code]add_cvar[/code], or anything with [code](name, default, description, flags) -> cvar[/code]) and keeps this router on them.
 ##
-## Pass GameSpice Server's FLAG_REPLICATED so clients hide the key when voice is off ([method DotVoiceManager.follow_cvars]). Duck-typed; the value is read back, as argv or content.yml may already hold the operator's choice.
+## Pass GameSpice Server's FLAG_REPLICATED so clients hide the key when voice is off ([method GSVoiceManager.follow_cvars]). Duck-typed; the value is read back, as argv or content.yml may already hold the operator's choice.
 func bind_cvars(add: Callable, flags: int = 0) -> Array:
 	var made: Array = []
 
@@ -510,13 +510,13 @@ func set_cvar(cvar_name: String, value: String) -> bool:
 		return false
 
 	if not text.is_valid_float():
-		DotLog.warn(CHANNEL, "cvar is not a number; left as it was", {"cvar": cvar_name, "value": value})
+		GSLog.warn(CHANNEL, "cvar is not a number; left as it was", {"cvar": cvar_name, "value": value})
 		return false
 
 	if cvar_name == CVAR_ENABLE:
 		var on := text.to_float() != 0.0
 		if on != enabled:
-			DotLog.info(CHANNEL, "voice chat %s" % ("on" if on else "off"))
+			GSLog.info(CHANNEL, "voice chat %s" % ("on" if on else "off"))
 		enabled = on
 		return true
 
@@ -529,7 +529,7 @@ func set_cvar(cvar_name: String, value: String) -> bool:
 			proximity_min_distance = clampf(number, 0.0, 100.0)
 			return true
 		CVAR_PROX_FALLOFF:
-			proximity_falloff = clampi(roundi(number), 0, 2) as DotVoiceProximity.Falloff
+			proximity_falloff = clampi(roundi(number), 0, 2) as GSVoiceProximity.Falloff
 			return true
 		CVAR_PROX_OCCLUSION:
 			proximity_occlusion = number != 0.0
@@ -546,7 +546,7 @@ func set_cvar(cvar_name: String, value: String) -> bool:
 
 	var index := clampi(roundi(number), 0, MODES.size() - 1)
 	forced_channel = MODES[index]
-	DotLog.debug(CHANNEL, "voice mode set", {"mode": index, "channel": forced_channel})
+	GSLog.debug(CHANNEL, "voice mode set", {"mode": index, "channel": forced_channel})
 	return true
 
 
@@ -574,7 +574,7 @@ func describe_lines() -> PackedStringArray:
 	out.append("voice     %s%s" % ["on" if enabled else "OFF", "" if forced_channel < 0 else ", channel %d forced" % forced_channel])
 	out.append("peers     %d" % peers.size())
 	out.append("relayed   %d packets, %s" % [
-		relayed_packets, DotPaths.format_bytes(relayed_bytes)
+		relayed_packets, GSPaths.format_bytes(relayed_bytes)
 	])
 	out.append("refused   %d muted, %d over rate, %d malformed, %d while off" % [
 		refused_muted, refused_rate, refused_format, refused_disabled

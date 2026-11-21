@@ -1,14 +1,14 @@
 @tool
-class_name DotVoiceJitter
+class_name GSVoiceJitter
 extends RefCounted
 
 ## One speaker's incoming frames, put back in order and handed out at a steady rate.
 ##
-## Packets arrive reordered, late and missing, so frames are sorted by sequence ([method DotVoicePacket.sequence_delta] owns the 16-bit wrap), the oldest dropped past [member max_frames], and a gap is filled by fading the last frame out (silence clicks).
+## Packets arrive reordered, late and missing, so frames are sorted by sequence ([method GSVoicePacket.sequence_delta] owns the 16-bit wrap), the oldest dropped past [member max_frames], and a gap is filled by fading the last frame out (silence clicks).
 
 const CHANNEL := "voice.jitter"
 
-## Frames buffered before playback starts, from [member DotVoiceConfig.jitter_ms].
+## Frames buffered before playback starts, from [member GSVoiceConfig.jitter_ms].
 var target_frames: int = 3
 
 ## Hard ceiling. Past this the oldest frame is dropped.
@@ -17,8 +17,8 @@ var max_frames: int = 20
 ## Samples in one frame. Frames of another length are refused.
 var frame_samples: int = 480
 
-## This speaker's own codec instance, never shared. See [DotVoiceCodecAdpcm].
-var codec: DotVoiceCodec = null
+## This speaker's own codec instance, never shared. See [GSVoiceCodecAdpcm].
+var codec: GSVoiceCodec = null
 
 ## Diagnostics, all counted rather than logged, because at 50 frames a second a log line
 ## per event is the bug.
@@ -40,13 +40,13 @@ var _last_frame: PackedFloat32Array = PackedFloat32Array()
 var _highest: int = -1
 
 
-func _init(p_frame_samples: int = 480, p_codec: DotVoiceCodec = null) -> void:
+func _init(p_frame_samples: int = 480, p_codec: GSVoiceCodec = null) -> void:
 	frame_samples = p_frame_samples
 	codec = p_codec
 
 
 ## Takes one packet in. Returns whether it was kept.
-func push(packet: DotVoicePacket) -> bool:
+func push(packet: GSVoicePacket) -> bool:
 	if packet == null:
 		return false
 
@@ -54,7 +54,7 @@ func push(packet: DotVoicePacket) -> bool:
 		# A different frame length means the ends disagree about the format. Refused, not
 		# resampled: playing it would be speech at the wrong speed, which reads as a broken
 		# microphone.
-		DotLog.debug(CHANNEL, "refusing a frame of the wrong length", {
+		GSLog.debug(CHANNEL, "refusing a frame of the wrong length", {
 			"got": packet.sample_count, "want": frame_samples
 		})
 		return false
@@ -71,7 +71,7 @@ func push(packet: DotVoicePacket) -> bool:
 	if _next < 0:
 		_next = packet.sequence
 
-	var delta := DotVoicePacket.sequence_delta(packet.sequence, _next)
+	var delta := GSVoicePacket.sequence_delta(packet.sequence, _next)
 
 	if delta < 0:
 		# Older than what we are about to play. Its moment has passed.
@@ -82,7 +82,7 @@ func push(packet: DotVoicePacket) -> bool:
 		dropped_duplicate += 1
 		return false
 
-	if _highest >= 0 and DotVoicePacket.sequence_delta(packet.sequence, _highest) < 0:
+	if _highest >= 0 and GSVoicePacket.sequence_delta(packet.sequence, _highest) < 0:
 		reorders += 1
 	else:
 		_highest = packet.sequence
@@ -98,7 +98,7 @@ func push(packet: DotVoicePacket) -> bool:
 			break
 		_frames.erase(oldest)
 		dropped_overflow += 1
-		if DotVoicePacket.sequence_delta(oldest, _next) >= 0:
+		if GSVoicePacket.sequence_delta(oldest, _next) >= 0:
 			_next = (oldest + 1) & 0xFFFF
 
 	return true
@@ -192,7 +192,7 @@ func _oldest_sequence() -> int:
 	var best := -1
 	for key in _frames.keys():
 		var seq: int = key
-		if best < 0 or DotVoicePacket.sequence_delta(seq, best) < 0:
+		if best < 0 or GSVoicePacket.sequence_delta(seq, best) < 0:
 			best = seq
 	return best
 

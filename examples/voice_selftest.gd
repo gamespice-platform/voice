@@ -2,16 +2,16 @@ extends "res://examples/voice_selftest_mid.gd"
 
 ## Proves the voice path end to end without a microphone, a speaker or a socket; exits non-zero on any failure.
 ##
-## Run: godot --headless --path . res://examples/voice_selftest.tscn. [DotVoiceSourceBuffer] and [DotVoiceSinkBuffer] stand in for the devices, so the gate, codec, wire, router and jitter buffer run the code a player runs. The device layer is the gap (last section).
+## Run: godot --headless --path . res://examples/voice_selftest.tscn. [GSVoiceSourceBuffer] and [GSVoiceSinkBuffer] stand in for the devices, so the gate, codec, wire, router and jitter buffer run the code a player runs. The device layer is the gap (last section).
 
 const CHECKS := 189
 
 
 
 func _ready() -> void:
-	DotLog.set_level(
-		DotLog.Level.DEBUG if "--verbose" in OS.get_cmdline_user_args()
-		else DotLog.Level.ERROR
+	GSLog.set_level(
+		GSLog.Level.DEBUG if "--verbose" in OS.get_cmdline_user_args()
+		else GSLog.Level.ERROR
 	)
 	_run.call_deferred()
 
@@ -69,15 +69,15 @@ func _test_talk_key_opens_the_microphone() -> void:
 	_section("the first press of the talk key is where the microphone opens")
 
 	var config := _config()
-	var talker := DotVoiceManager.new()
+	var talker := GSVoiceManager.new()
 	talker.name = "Presser"
 	talker.config = config
 	talker.config_file = ""
 	talker.register_service = false
-	var mic := DotVoiceSourceBuffer.new()
+	var mic := GSVoiceSourceBuffer.new()
 	mic.sample_rate = config.sample_rate
 	mic.loop = true
-	mic.write(DotVoiceSourceBuffer.tone(440.0, 0.2, config.sample_rate, 0.4))
+	mic.write(GSVoiceSourceBuffer.tone(440.0, 0.2, config.sample_rate, 0.4))
 	talker.source = mic
 	var sent: Array[int] = []
 	talker.send_fn = func(b: PackedByteArray) -> void: sent.append(b.size())
@@ -111,7 +111,7 @@ func _test_talk_key_opens_the_microphone() -> void:
 	talker.set_open_mic(false)
 
 	# A refusal is returned once a press, not every frame.
-	var nothing := DotVoiceManager.new()
+	var nothing := GSVoiceManager.new()
 	nothing.name = "NoMic"
 	nothing.config = _config()
 	nothing.config_file = ""
@@ -147,7 +147,7 @@ func _test_over_a_real_socket() -> void:
 		_done()
 		return
 
-	var router := DotVoiceRouter.new()
+	var router := GSVoiceRouter.new()
 	router.name = "SocketRouter"
 	router.config = config
 	# A looping buffer source runs faster than real time; the rate limit is another section's.
@@ -202,28 +202,28 @@ func _test_over_a_real_socket() -> void:
 		server_peers[ids[i]] = pending[i]
 		router.add_peer(ids[i])
 
-	var talker := DotVoiceManager.new()
+	var talker := GSVoiceManager.new()
 	talker.name = "SocketTalker"
 	talker.config = config
 	talker.config_file = ""
 	talker.register_service = false
-	var mic := DotVoiceSourceBuffer.new()
+	var mic := GSVoiceSourceBuffer.new()
 	mic.sample_rate = config.sample_rate
 	mic.loop = true
-	mic.write(DotVoiceSourceBuffer.tone(440.0, 0.2, config.sample_rate, 0.4))
+	mic.write(GSVoiceSourceBuffer.tone(440.0, 0.2, config.sample_rate, 0.4))
 	talker.source = mic
 	talker.send_fn = func(b: PackedByteArray) -> void: var _e := clients[0].send(b)
 	add_child(talker)
 
-	var listener := DotVoiceManager.new()
+	var listener := GSVoiceManager.new()
 	listener.name = "SocketListener"
 	listener.config = config
 	listener.config_file = ""
 	listener.register_service = false
-	var heard := DotVoiceSinkBuffer.new()
+	var heard := GSVoiceSinkBuffer.new()
 	heard.sample_rate = config.sample_rate
 	var speakers: Array[int] = []
-	listener.sink_factory = func(speaker: int) -> DotVoiceSink:
+	listener.sink_factory = func(speaker: int) -> GSVoiceSink:
 		speakers.append(speaker)
 		return heard
 	add_child(listener)
@@ -283,32 +283,32 @@ func _test_proximity_math() -> void:
 
 	for falloff in [0, 1, 2]:
 		var name: String = ["linear", "inverse", "quadratic"][falloff]
-		_check(is_equal_approx(DotVoiceProximity.gain(1.0, 40.0, 2.0, falloff), 1.0), "%s: full volume inside the minimum distance" % name)
-		_check(DotVoiceProximity.gain(40.0, 40.0, 2.0, falloff) == 0.0, "%s: silent at the radius" % name)
+		_check(is_equal_approx(GSVoiceProximity.gain(1.0, 40.0, 2.0, falloff), 1.0), "%s: full volume inside the minimum distance" % name)
+		_check(GSVoiceProximity.gain(40.0, 40.0, 2.0, falloff) == 0.0, "%s: silent at the radius" % name)
 		var last := 1.0
 		var monotonic := true
 		for d in range(3, 40):
-			var g := DotVoiceProximity.gain(float(d), 40.0, 2.0, falloff)
+			var g := GSVoiceProximity.gain(float(d), 40.0, 2.0, falloff)
 			if g > last + 0.0001:
 				monotonic = false
 			last = g
 		_check(monotonic, "%s: never gets louder with distance" % name)
-	_check(is_equal_approx(DotVoiceProximity.gain(21.0, 40.0, 2.0, 0), 0.5), "linear: halfway is half")
+	_check(is_equal_approx(GSVoiceProximity.gain(21.0, 40.0, 2.0, 0), 0.5), "linear: halfway is half")
 	_check(
-		DotVoiceProximity.gain(10.0, 40.0, 2.0, 2) < DotVoiceProximity.gain(10.0, 40.0, 2.0, 0),
+		GSVoiceProximity.gain(10.0, 40.0, 2.0, 2) < GSVoiceProximity.gain(10.0, 40.0, 2.0, 0),
 		"quadratic is quieter than linear at the same distance"
 	)
 
-	var packet := DotVoicePacket.new()
+	var packet := GSVoicePacket.new()
 	packet.sample_count = 480
 	packet.payload = PackedByteArray([1, 2, 3])
 	packet.starts_talk_spurt = true
 	packet.gain = 0.5
-	var back: DotVoicePacket = DotVoicePacket.from_bytes(packet.to_bytes()).value
+	var back: GSVoicePacket = GSVoicePacket.from_bytes(packet.to_bytes()).value
 	_check(absf(back.gain - 0.5) < 0.01 and back.starts_talk_spurt, "a gain survives the wire beside the start flag", str(back.gain))
 	packet.gain = 1.0
 	_check(
-		(DotVoicePacket.from_bytes(packet.to_bytes()).value as DotVoicePacket).gain == 1.0,
+		(GSVoicePacket.from_bytes(packet.to_bytes()).value as GSVoicePacket).gain == 1.0,
 		"no gain bits means full volume"
 	)
 	_done()
@@ -318,14 +318,14 @@ func _test_proximity_two_clients() -> void:
 	_section("proximity: volume falls with distance and nothing is sent beyond the radius")
 
 	var config := _config()
-	var router := DotVoiceRouter.new()
+	var router := GSVoiceRouter.new()
 	router.name = "ProxRouter"
 	router.config = config
 	router.max_bytes_per_second = 0
-	router.default_channel = DotVoiceRouter.Channel.PROXIMITY
+	router.default_channel = GSVoiceRouter.Channel.PROXIMITY
 	router.proximity_range = 40.0
 	router.proximity_min_distance = 2.0
-	router.proximity_falloff = DotVoiceProximity.Falloff.LINEAR
+	router.proximity_falloff = GSVoiceProximity.Falloff.LINEAR
 	add_child(router)
 
 	var talker_id := 111_111_111
@@ -337,28 +337,28 @@ func _test_proximity_two_clients() -> void:
 	var listeners: Dictionary = {}
 	var heard: Dictionary = {}
 	for id in [222, 333, 444]:
-		var m := DotVoiceManager.new()
+		var m := GSVoiceManager.new()
 		m.name = "ProxListener%d" % id
 		m.config = config
 		m.config_file = ""
 		m.register_service = false
-		var sink := DotVoiceSinkBuffer.new()
+		var sink := GSVoiceSinkBuffer.new()
 		sink.sample_rate = config.sample_rate
 		heard[id] = sink
 		# The factory is set before the manager is in the tree, so no speaker can exist
 		# without it (the order a sink that hears silence would come from).
-		m.sink_factory = func(_speaker: int) -> DotVoiceSink: return sink
+		m.sink_factory = func(_speaker: int) -> GSVoiceSink: return sink
 		listeners[id] = m
 		add_child(m)
 	router.send_fn = func(peer: int, bytes: PackedByteArray) -> void:
-		var _r: bool = (listeners[peer] as DotVoiceManager).receive(bytes)
+		var _r: bool = (listeners[peer] as GSVoiceManager).receive(bytes)
 
-	var talker := DotVoiceManager.new()
+	var talker := GSVoiceManager.new()
 	talker.name = "ProxTalker"
 	talker.config = config
 	talker.config_file = ""
 	talker.register_service = false
-	var mic := DotVoiceSourceBuffer.new()
+	var mic := GSVoiceSourceBuffer.new()
 	mic.sample_rate = config.sample_rate
 	talker.source = mic
 	var first_frame: Array[PackedByteArray] = []
@@ -370,13 +370,13 @@ func _test_proximity_two_clients() -> void:
 	await get_tree().process_frame
 
 	var _s := talker.start_capture()
-	mic.write(DotVoiceSourceBuffer.tone(440.0, 0.6, config.sample_rate, 0.4))
+	mic.write(GSVoiceSourceBuffer.tone(440.0, 0.6, config.sample_rate, 0.4))
 	talker.set_talking(true)
 	for _i in range(45):
 		await get_tree().process_frame
 
-	var near: float = (heard[222] as DotVoiceSinkBuffer).rms()
-	var far: float = (heard[333] as DotVoiceSinkBuffer).rms()
+	var near: float = (heard[222] as GSVoiceSinkBuffer).rms()
+	var far: float = (heard[333] as GSVoiceSinkBuffer).rms()
 	_check(talker.frames_sent > 10, "the talker sends frames (%d)" % talker.frames_sent)
 	_check(near > 0.05 and far > 0.01, "both listeners in range hear it (%.3f, %.3f)" % [near, far])
 	_check(near > far * 2.0, "the near one is louder (%.3f vs %.3f)" % [near, far])
@@ -384,19 +384,19 @@ func _test_proximity_two_clients() -> void:
 	var ratio := far / maxf(near, 0.0001)
 	_check(absf(ratio - 0.286) < 0.06, "and by the cvars' curve (ratio %.3f, expected 0.286)" % ratio)
 	_check(
-		(listeners[444] as DotVoiceManager).frames_received == 0,
-		"beyond the radius, no frame is sent at all (%d)" % (listeners[444] as DotVoiceManager).frames_received
+		(listeners[444] as GSVoiceManager).frames_received == 0,
+		"beyond the radius, no frame is sent at all (%d)" % (listeners[444] as GSVoiceManager).frames_received
 	)
 	_check(
-		(listeners[222] as DotVoiceManager).frames_received == talker.frames_sent,
-		"inside it every frame is (%d of %d)" % [(listeners[222] as DotVoiceManager).frames_received, talker.frames_sent]
+		(listeners[222] as GSVoiceManager).frames_received == talker.frames_sent,
+		"inside it every frame is (%d of %d)" % [(listeners[222] as GSVoiceManager).frames_received, talker.frames_sent]
 	)
 
 	# The cvars move the curve, not just the constants.
 	var got: Array[float] = []
 	router.send_fn = func(peer: int, bytes: PackedByteArray) -> void:
 		if peer == 333:
-			got.append((DotVoicePacket.from_bytes(bytes).value as DotVoicePacket).gain)
+			got.append((GSVoicePacket.from_bytes(bytes).value as GSVoicePacket).gain)
 	var frame: PackedByteArray = first_frame[0]
 	var _r := router.relay(talker_id, frame)
 	_check(got.size() == 1 and absf(got[0] - 0.263) < 0.02, "30 m gets 0.263 (%s)" % str(got))
@@ -410,7 +410,7 @@ func _test_proximity_two_clients() -> void:
 
 	# A client's own gain bits are the server's to set, not the talker's.
 	var cheat := frame.duplicate()
-	cheat.encode_u8(DotVoicePacket.OFFSET_FLAGS, cheat.decode_u8(DotVoicePacket.OFFSET_FLAGS) | DotVoicePacket.gain_bits(0.05))
+	cheat.encode_u8(GSVoicePacket.OFFSET_FLAGS, cheat.decode_u8(GSVoicePacket.OFFSET_FLAGS) | GSVoicePacket.gain_bits(0.05))
 	router.set_cvar("sv_voice_proximity_range", "40")
 	router.set_cvar("sv_voice_proximity_min", "40")
 	router.set_cvar("sv_voice_proximity_falloff", "0")
@@ -439,9 +439,9 @@ func _test_proximity_two_clients() -> void:
 	router.honour_packet_channel = true
 	router.team_fn = func(_p: int) -> int: return 1
 	var team_frame := frame.duplicate()
-	team_frame.encode_u8(DotVoicePacket.OFFSET_CHANNEL, DotVoiceRouter.Channel.TEAM)
+	team_frame.encode_u8(GSVoicePacket.OFFSET_CHANNEL, GSVoiceRouter.Channel.TEAM)
 	var all_frame := frame.duplicate()
-	all_frame.encode_u8(DotVoicePacket.OFFSET_CHANNEL, DotVoiceRouter.Channel.ALL)
+	all_frame.encode_u8(GSVoicePacket.OFFSET_CHANNEL, GSVoiceRouter.Channel.ALL)
 	var counted: Array[int] = []
 	router.send_fn = func(peer: int, _b: PackedByteArray) -> void: counted.append(peer)
 	_r = router.relay(talker_id, team_frame)
@@ -471,13 +471,13 @@ func _test_look_mute() -> void:
 	_section("look at a player: tap gags, double-tap mutes, both rebindable")
 
 	var config := _config()
-	var manager := DotVoiceManager.new()
+	var manager := GSVoiceManager.new()
 	manager.config = config
 	manager.config_file = ""
 	manager.register_service = false
 	add_child(manager)
 
-	var look := DotVoiceLookMute.new()
+	var look := GSVoiceLookMute.new()
 	look.manager = manager
 	var target := [7]
 	look.target_fn = func() -> int: return target[0]
@@ -509,7 +509,7 @@ func _test_look_mute() -> void:
 	target[0] = 8
 
 	# A gagged speaker's frames are dropped; the others' are not.
-	var packet := DotVoicePacket.new()
+	var packet := GSVoicePacket.new()
 	packet.speaker = 8
 	packet.sample_count = config.frame_samples()
 	packet.payload = PackedByteArray([0, 0, 0, 0])
@@ -528,12 +528,12 @@ func _test_look_mute() -> void:
 	_check(look.is_muted(20) and not look.is_gagged(20), "separate keys: the mute key mutes")
 
 	# Both are InputMap actions, so a key table can rebind them.
-	DotVoiceLookMute.ensure_actions()
-	_check(InputMap.has_action(DotVoiceLookMute.GAG_ACTION) and InputMap.has_action(DotVoiceLookMute.MUTE_ACTION), "both keys are InputMap actions")
-	InputMap.action_erase_events(DotVoiceLookMute.GAG_ACTION)
+	GSVoiceLookMute.ensure_actions()
+	_check(InputMap.has_action(GSVoiceLookMute.GAG_ACTION) and InputMap.has_action(GSVoiceLookMute.MUTE_ACTION), "both keys are InputMap actions")
+	InputMap.action_erase_events(GSVoiceLookMute.GAG_ACTION)
 	var rebound := InputEventKey.new()
 	rebound.physical_keycode = KEY_B
-	InputMap.action_add_event(DotVoiceLookMute.GAG_ACTION, rebound)
+	InputMap.action_add_event(GSVoiceLookMute.GAG_ACTION, rebound)
 	var press := InputEventKey.new()
 	press.physical_keycode = KEY_B
 	press.pressed = true
@@ -541,25 +541,25 @@ func _test_look_mute() -> void:
 	target[0] = 30
 	look._unhandled_input(press)
 	_check(look.is_gagged(30), "a rebound gag key gags")
-	InputMap.action_erase_events(DotVoiceLookMute.GAG_ACTION)
+	InputMap.action_erase_events(GSVoiceLookMute.GAG_ACTION)
 	var home := InputEventKey.new()
-	home.physical_keycode = DotVoiceLookMute.DEFAULT_GAG_KEY
-	InputMap.action_add_event(DotVoiceLookMute.GAG_ACTION, home)
+	home.physical_keycode = GSVoiceLookMute.DEFAULT_GAG_KEY
+	InputMap.action_add_event(GSVoiceLookMute.GAG_ACTION, home)
 
 	# Server side: allowed and default are cvars.
-	_check(look.set_cvar(DotVoiceLookMute.CVAR_GAG_ALLOWED, "0"), "sv_voice_gag_allowed applies")
+	_check(look.set_cvar(GSVoiceLookMute.CVAR_GAG_ALLOWED, "0"), "sv_voice_gag_allowed applies")
 	target[0] = 40
 	look.tap(30000)
 	_check(not look.is_gagged(40), "gag not allowed: a tap does nothing")
 	look.tap(40000)
 	look.tap(40100)
 	_check(look.is_muted(40), "but a double-tap still mutes when mute is allowed")
-	look.set_cvar(DotVoiceLookMute.CVAR_MUTE_ALLOWED, "0")
+	look.set_cvar(GSVoiceLookMute.CVAR_MUTE_ALLOWED, "0")
 	target[0] = 41
 	look.tap(50000)
 	look.tap(50100)
 	_check(not look.is_muted(41), "mute not allowed: no mute")
-	look.set_cvar(DotVoiceLookMute.CVAR_GAG_DEFAULT, "1")
+	look.set_cvar(GSVoiceLookMute.CVAR_GAG_DEFAULT, "1")
 	_check(manager.is_gagged(500) and not manager.is_gagged(8), "gag default: strangers start gagged, anyone un-gagged stays heard")
 
 	look.queue_free()
@@ -569,11 +569,11 @@ func _test_look_mute() -> void:
 
 ## The honest gap: everything above runs with no audio device in the process.
 ##
-## [DotVoiceSourceMicrophone] and [DotVoiceSinkPlayer] are covered by nothing here (a headless run has no driver); see tools/voice_device_probe.sh.
+## [GSVoiceSourceMicrophone] and [GSVoiceSinkPlayer] are covered by nothing here (a headless run has no driver); see tools/voice_device_probe.sh.
 func _test_device_layer_is_not_covered() -> void:
 	_section("what this suite does not cover")
 
-	var supported := DotVoiceSourceMicrophone.is_supported()
+	var supported := GSVoiceSourceMicrophone.is_supported()
 
 	_check(
 		not supported.ok,
@@ -581,11 +581,11 @@ func _test_device_layer_is_not_covered() -> void:
 		str(supported.error) if supported.ok else ""
 	)
 	_check(
-		supported.error != null and supported.error.code == DotError.CODE_UNSUPPORTED,
+		supported.error != null and supported.error.code == GSError.CODE_UNSUPPORTED,
 		"as CODE_UNSUPPORTED, which a host can branch on"
 	)
 
-	print("  note  DotVoiceSourceMicrophone and DotVoiceSinkPlayer are NOT covered here.")
+	print("  note  GSVoiceSourceMicrophone and GSVoiceSinkPlayer are NOT covered here.")
 	print("        They need an audio device: tools/voice_device_probe.sh runs both under")
 	print("        Xvfb on a real ALSA device, with a tone played into the capture bus.")
 	_done()

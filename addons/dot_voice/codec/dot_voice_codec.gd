@@ -1,5 +1,5 @@
 @tool
-class_name DotVoiceCodec
+class_name GSVoiceCodec
 extends RefCounted
 
 ## Turns a frame of mono samples into bytes and back; subclass and [method register] to plug in a real codec (e.g. Opus).
@@ -8,7 +8,7 @@ extends RefCounted
 
 const CHANNEL := "voice.codec"
 
-## id -> DotVoiceCodec, filled by [method register].
+## id -> GSVoiceCodec, filled by [method register].
 static var _registry: Dictionary = {}
 
 
@@ -38,7 +38,7 @@ func bytes_for(_sample_count: int) -> int:
 
 ## Whether a decoder must see every frame in order.
 ##
-## True for ADPCM (predictor state), false for PCM; [DotVoiceJitter] resets the decoder after a gap when true.
+## True for ADPCM (predictor state), false for PCM; [GSVoiceJitter] resets the decoder after a gap when true.
 func is_stateful() -> bool:
 	return false
 
@@ -50,15 +50,15 @@ func reset() -> void:
 
 ## A decoder cannot share state with an encoder or another speaker.
 ##
-## Hence [DotVoiceJitter] holds one codec per speaker: shared stateful decoding is loud noise on both.
-func duplicate_codec() -> DotVoiceCodec:
+## Hence [GSVoiceJitter] holds one codec per speaker: shared stateful decoding is loud noise on both.
+func duplicate_codec() -> GSVoiceCodec:
 	return null
 
 
 
-static func register(codec: DotVoiceCodec) -> void:
+static func register(codec: GSVoiceCodec) -> void:
 	if codec == null or codec.id() == &"":
-		DotLog.warn(CHANNEL, "refusing to register a codec with no id")
+		GSLog.warn(CHANNEL, "refusing to register a codec with no id")
 		return
 	_registry[codec.id()] = codec
 
@@ -66,14 +66,14 @@ static func register(codec: DotVoiceCodec) -> void:
 ## Returns a codec by id, or null.
 ##
 ## Built-ins register on first call, not in a static initialiser: GDScript gives no ordering between static initialisers.
-static func for_id(codec_id: StringName) -> DotVoiceCodec:
+static func for_id(codec_id: StringName) -> GSVoiceCodec:
 	_ensure_builtins()
 	var found: Variant = _registry.get(codec_id)
-	return found as DotVoiceCodec if found != null else null
+	return found as GSVoiceCodec if found != null else null
 
 
 ## A private codec instance for one stream. Never share one between speakers.
-static func instance_for(codec_id: StringName) -> DotVoiceCodec:
+static func instance_for(codec_id: StringName) -> GSVoiceCodec:
 	var template := for_id(codec_id)
 	if template == null:
 		return null
@@ -93,5 +93,5 @@ static func known_ids() -> PackedStringArray:
 static func _ensure_builtins() -> void:
 	if _registry.has(&"pcm16"):
 		return
-	register(DotVoiceCodecPcm16.new())
-	register(DotVoiceCodecAdpcm.new())
+	register(GSVoiceCodecPcm16.new())
+	register(GSVoiceCodecAdpcm.new())

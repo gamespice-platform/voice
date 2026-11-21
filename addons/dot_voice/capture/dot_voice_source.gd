@@ -1,18 +1,18 @@
 @tool
-class_name DotVoiceSource
+class_name GSVoiceSource
 extends RefCounted
 
 ## Where a frame of microphone samples comes from.
 ##
-## An interface so the suite and bots can use [DotVoiceSourceBuffer] and run the same path a player does; [DotVoiceSourceMicrophone] opens an [AudioEffectCapture].
+## An interface so the suite and bots can use [GSVoiceSourceBuffer] and run the same path a player does; [GSVoiceSourceMicrophone] opens an [AudioEffectCapture].
 
 ## Samples per second this source produces.
 var sample_rate: int = 24000
 
 
 ## Opens the device. Returns a failure the host can show a player.
-func start() -> DotResult:
-	return DotResult.success(true)
+func start() -> GSResult:
+	return GSResult.success(true)
 
 
 func stop() -> void:
@@ -53,7 +53,7 @@ static func to_mono(frames: PackedVector2Array) -> PackedFloat32Array:
 
 ## Resamples mono audio by linear interpolation.
 ##
-## No low-pass, so downsampling aliases (a slight sibilant harshness); a polyphase filter in GDScript costs more than the codec. Subclass [DotVoiceSource] to plug in a GDExtension resampler.
+## No low-pass, so downsampling aliases (a slight sibilant harshness); a polyphase filter in GDScript costs more than the codec. Subclass [GSVoiceSource] to plug in a GDExtension resampler.
 static func resample(
 	samples: PackedFloat32Array, from_rate: int, to_rate: int
 ) -> PackedFloat32Array:

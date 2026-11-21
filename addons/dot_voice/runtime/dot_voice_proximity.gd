@@ -1,10 +1,10 @@
 @tool
-class_name DotVoiceProximity
+class_name GSVoiceProximity
 extends RefCounted
 
 ## The arithmetic of proximity voice, shared by the router and the tests.
 ##
-## A gain curve, not a hard radius; the server computes it ([member DotVoicePacket.gain]) because it has both positions and the wall test, and a modified client cannot argue with it.
+## A gain curve, not a hard radius; the server computes it ([member GSVoicePacket.gain]) because it has both positions and the wall test, and a modified client cannot argue with it.
 
 ## How loudness falls from [param min_distance] to the radius. Every curve is 1.0 at the
 ## minimum distance and exactly 0.0 at the radius, so the range is where the server stops
@@ -41,7 +41,7 @@ static func gain(distance: float, radius: float, min_distance: float, falloff: i
 			return 1.0 - t
 
 
-## A cheap occluder for [member DotVoiceRouter.occlusion_fn]: one ray between the two heads.
+## A cheap occluder for [member GSVoiceRouter.occlusion_fn]: one ray between the two heads.
 ##
 ## [param space_fn] returns the [PhysicsDirectSpaceState3D] (null: no occlusion). One ray per in-radius listener, lifted to head height so floors do not occlude.
 static func ray_occluder(space_fn: Callable, mask: int = 1, head_height: float = 1.6) -> Callable:

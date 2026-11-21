@@ -17,14 +17,14 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is sp
 
 | Path | What |
 | --- | --- |
-| `capture/` | `DotVoiceSource` and its microphone and buffer sources; `DotVoiceGate` |
-| `playback/` | `DotVoiceSink` (player, buffer), `DotVoiceJitter` |
-| `codec/` | `DotVoiceCodec` registry, `pcm16`, `adpcm` (the default) |
-| `wire/dot_voice_packet.gd` | `DotVoicePacket`: version 2, `OFFSET_*`, `sequence_delta` |
-| `runtime/dot_voice_router.gd` | `DotVoiceRouter`: the server side; channels, mutes, rate limit, `team_fn`, `position_fn`, `can_hear_fn` |
-| `runtime/dot_voice_proximity.gd`, `runtime/dot_voice_look_mute.gd` | `DotVoiceProximity`: falloff curves and a ray occluder; `DotVoiceLookMute`: look at a player, tap gags, double-tap mutes, rebindable (`voice_gag`, `voice_mute`) |
-| `runtime/dot_voice_manager.gd` | `DotVoiceManager`: the client side; `start_capture()`, playback, `local_mutes` |
-| `dot_voice_config.gd` | `DotVoiceConfig`: sample rate, frame length, codec, `format_fingerprint()`, `frame_samples()` |
+| `capture/` | `GSVoiceSource` and its microphone and buffer sources; `GSVoiceGate` |
+| `playback/` | `GSVoiceSink` (player, buffer), `GSVoiceJitter` |
+| `codec/` | `GSVoiceCodec` registry, `pcm16`, `adpcm` (the default) |
+| `wire/dot_voice_packet.gd` | `GSVoicePacket`: version 2, `OFFSET_*`, `sequence_delta` |
+| `runtime/dot_voice_router.gd` | `GSVoiceRouter`: the server side; channels, mutes, rate limit, `team_fn`, `position_fn`, `can_hear_fn` |
+| `runtime/dot_voice_proximity.gd`, `runtime/dot_voice_look_mute.gd` | `GSVoiceProximity`: falloff curves and a ray occluder; `GSVoiceLookMute`: look at a player, tap gags, double-tap mutes, rebindable (`voice_gag`, `voice_mute`) |
+| `runtime/dot_voice_manager.gd` | `GSVoiceManager`: the client side; `start_capture()`, playback, `local_mutes` |
+| `dot_voice_config.gd` | `GSVoiceConfig`: sample rate, frame length, codec, `format_fingerprint()`, `frame_samples()` |
 | `examples/voice_selftest.tscn` | the suite, no audio device needed |
 | `examples/voice_device_probe.tscn`, `tools/voice_device_probe.sh` | the capture bus and the player sink on a real device, under Xvfb |
 | `examples/web_voice_probe.tscn`, `examples/web_voice_server.gd`, `tools/web_voice_check.mjs` | voice in a real browser: export, fake microphone, Playwright |
@@ -40,7 +40,7 @@ The family's two steps ([family CLAUDE.md](../../CLAUDE.md#validating-anything))
 - Never test for a sound card with the mix rate or device list; only `get_driver_name() == "Dummy"` tells. [design](docs/design.md#audioserver-lies-about-having-a-sound-card)
 - Exchange `format_fingerprint()` at handshake; a format mismatch is noise, not an error. `frame_samples()` is the only place frame length is computed. [design](docs/design.md#format-and-the-fingerprint)
 - One decoder instance per speaker for a stateful codec (`instance_for()`); nothing outside `codec/` names a codec. [design](docs/design.md#codecs)
-- Byte offsets live only in `DotVoicePacket.OFFSET_*`; sequence arithmetic only in `sequence_delta`. Bump `VERSION` on any layout change. [design](docs/design.md#the-wire-format)
+- Byte offsets live only in `GSVoicePacket.OFFSET_*`; sequence arithmetic only in `sequence_delta`. Bump `VERSION` on any layout change. [design](docs/design.md#the-wire-format)
 - The jitter buffer starts on `target_frames`, continues on one, drops the oldest past `max_frames`, fades gaps, and resets on a talk spurt. [design](docs/design.md#the-jitter-buffer-is-where-voice-is-won-or-lost)
 - Playback runs on a real-time accumulator, never the frame rate. [design](docs/design.md#the-jitter-buffer-is-where-voice-is-won-or-lost)
 - The router stamps the speaker from the transport, checks mute before relaying without telling the speaker, rate-limits, never sends back to the speaker, and a team channel with no `team_fn` reaches nobody. [design](docs/design.md#what-the-server-decides-and-why-it-has-to-be-the-server)

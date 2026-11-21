@@ -1,6 +1,6 @@
 @tool
-class_name DotVoiceCodecPcm16
-extends DotVoiceCodec
+class_name GSVoiceCodecPcm16
+extends GSVoiceCodec
 
 ## Linear 16-bit PCM: exact, stateless, twice the bandwidth.
 ##
@@ -48,7 +48,7 @@ func bytes_for(sample_count: int) -> int:
 	return sample_count * 2
 
 
-func duplicate_codec() -> DotVoiceCodec:
+func duplicate_codec() -> GSVoiceCodec:
 	# Stateless, so one instance can serve every stream. Returned as itself rather than as
 	# a copy to keep the allocation out of the per-speaker path.
 	return self

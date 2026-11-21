@@ -2,29 +2,29 @@ extends Node
 
 ## Voice in a browser: the page's half of tools/web_voice_check.mjs.
 ##
-## Connects to `?ws=ws://host:port`, asks for the microphone on the first press of V via [method DotVoiceManager.update_talk] (the check counts `getUserMedia` calls), and prints one `VOICEPROBE {json}` line a second.
+## Connects to `?ws=ws://host:port`, asks for the microphone on the first press of V via [method GSVoiceManager.update_talk] (the check counts `getUserMedia` calls), and prints one `VOICEPROBE {json}` line a second.
 
 var _ws := WebSocketPeer.new()
-var _talker: DotVoiceManager = null
-var _listener: DotVoiceManager = null
-var _heard := DotVoiceSinkBuffer.new()
+var _talker: GSVoiceManager = null
+var _listener: GSVoiceManager = null
+var _heard := GSVoiceSinkBuffer.new()
 var _speakers: Array[int] = []
 var _last_report := 0
 var _press_error := ""
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.WARN)
+	GSLog.set_level(GSLog.Level.WARN)
 	var url := "ws://127.0.0.1:47380"
-	var from_page := DotWeb.query_param("ws")
+	var from_page := GSWeb.query_param("ws")
 	if from_page != "":
 		url = from_page
 	var _e := _ws.connect_to_url(url)
 
-	var config := DotVoiceConfig.new()
+	var config := GSVoiceConfig.new()
 	config.push_to_talk = true
 
-	_talker = DotVoiceManager.new()
+	_talker = GSVoiceManager.new()
 	_talker.name = "Talker"
 	_talker.config = config
 	_talker.config_file = ""
@@ -34,18 +34,18 @@ func _ready() -> void:
 			var _s := _ws.send(b)
 	add_child(_talker)
 
-	_listener = DotVoiceManager.new()
+	_listener = GSVoiceManager.new()
 	_listener.name = "Listener"
 	_listener.config = config
 	_listener.config_file = ""
 	_listener.register_service = false
 	_heard.sample_rate = config.sample_rate
-	_listener.sink_factory = func(speaker: int) -> DotVoiceSink:
+	_listener.sink_factory = func(speaker: int) -> GSVoiceSink:
 		_speakers.append(speaker)
-		var player := DotVoiceSinkPlayer.new(_listener, config.sample_rate)
+		var player := GSVoiceSinkPlayer.new(_listener, config.sample_rate)
 		return Tee.new(player, _heard)
 	add_child(_listener)
-	DotVoiceManager.ensure_talk_action()
+	GSVoiceManager.ensure_talk_action()
 	print("VOICEPROBE {\"ready\": true, \"url\": \"%s\"}" % url)
 
 
@@ -54,7 +54,7 @@ func _process(_delta: float) -> void:
 	while _ws.get_available_packet_count() > 0:
 		var _p := _listener.receive(_ws.get_packet())
 
-	var pressed := _talker.update_talk(DotVoiceManager.is_talk_held())
+	var pressed := _talker.update_talk(GSVoiceManager.is_talk_held())
 	if not pressed.ok:
 		_press_error = pressed.error.message
 
@@ -77,13 +77,13 @@ func _process(_delta: float) -> void:
 
 
 class Tee:
-	extends DotVoiceSink
-	var a: DotVoiceSink
-	var b: DotVoiceSink
-	func _init(p_a: DotVoiceSink, p_b: DotVoiceSink) -> void:
+	extends GSVoiceSink
+	var a: GSVoiceSink
+	var b: GSVoiceSink
+	func _init(p_a: GSVoiceSink, p_b: GSVoiceSink) -> void:
 		a = p_a
 		b = p_b
-	func start() -> DotResult:
+	func start() -> GSResult:
 		var s := a.start()
 		var _t := b.start()
 		return s
