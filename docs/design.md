@@ -1,6 +1,6 @@
 # Design
 
-Why dot-voice is shaped the way it is. The one-line rules are in [CLAUDE.md](../CLAUDE.md).
+Why gs-voice is shaped the way it is. The one-line rules are in [CLAUDE.md](../CLAUDE.md).
 
 ## The devices are behind an interface
 
@@ -81,17 +81,17 @@ Godot exposes no Opus encoder to GDScript. `GSVoiceCodec.register()` is how a GD
 A client asking another client not to play a muted player is not muting anybody, because the muted player's own client would have to cooperate. `GSVoiceRouter` runs on the server:
 
 - **The speaker id is stamped from the transport**, never read from the packet. A client that could name its own speaker id could put words in anyone's mouth.
-- **Mute is checked before relaying**, and a muted speaker is **not told**: telling them is spam fifty times a second, and it tells them exactly when a moderator acted. Mutes come from whatever is registered as `dot_mute_source` (GameSpice Moderation publishes it); anything with `is_voice_muted(speaker) -> bool` answers.
+- **Mute is checked before relaying**, and a muted speaker is **not told**: telling them is spam fifty times a second, and it tells them exactly when a moderator acted. Mutes come from whatever is registered as `gs_mute_source` (GameSpice Moderation publishes it); anything with `is_voice_muted(speaker) -> bool` answers.
 - **The rate limit is the amplifier control.** One speaker is relayed to every listener, so a client sending ten times the expected rate costs ten times that multiplied by the player count.
 - **A team channel with no `team_fn` reaches nobody, not everybody.** A team channel that leaks to the other team sounds exactly like working, so nobody reports it.
-- **A range is not a room.** `can_hear_fn(listener, speaker, listener_at, speaker_at) -> bool` is asked on `PROXIMITY` after the squared-distance test, only about listeners in range, with the positions `position_fn` produced. The host's level decides what blocks sound; this addon knows positions and must not learn walls. It has dot-chat's `GSChatRouter.can_hear_fn` signature on purpose, so one function answers both and nobody reads a line from somebody they cannot hear. The suite's "the server decides who hears whom" section is armed: with the call disabled, both of its checks fail.
+- **A range is not a room.** `can_hear_fn(listener, speaker, listener_at, speaker_at) -> bool` is asked on `PROXIMITY` after the squared-distance test, only about listeners in range, with the positions `position_fn` produced. The host's level decides what blocks sound; this addon knows positions and must not learn walls. It has gs-chat's `GSChatRouter.can_hear_fn` signature on purpose, so one function answers both and nobody reads a line from somebody they cannot hear. The suite's "the server decides who hears whom" section is armed: with the call disabled, both of its checks fail.
 - **Never back to the speaker.** Hearing yourself at a round trip's delay is the most disorienting thing a voice system can do.
 
 **A moderator's mute and a player's own mute list are different features.** `GSVoiceRouter` enforces the first on the server; `GSVoiceManager.local_mutes` applies the second on the listener's machine. Conflating them gives a punishment the punished player can decline.
 
 ## The server's switch
 
-`GSVoiceRouter.enabled` is the operator's `sv_voice_enable` and `forced_channel` their `sv_voice_mode` (0 the game decides, 1 everybody, 2 team, 3 nearby). `bind_cvars(add, flags)` registers both through a module's `add_cvar`, in dot-combat's duck-typed shape, and reads back a value set before it ran (argv, the deploy's `content.yml`). **Off is enforced on the router**: a client told voice is off stops capturing and hides its key, but a modified client keeps sending, and only the relay can make "off" mean off. A refused frame is counted (`refused_disabled`) and the speaker is not told, as with a mute. Registered with dot-server's `FLAG_REPLICATED`, the value reaches every client's `GSClientLink`, and `GSVoiceManager.follow_cvars(link)` turns it into `server_enabled` and `server_enabled_changed`.
+`GSVoiceRouter.enabled` is the operator's `sv_voice_enable` and `forced_channel` their `sv_voice_mode` (0 the game decides, 1 everybody, 2 team, 3 nearby). `bind_cvars(add, flags)` registers both through a module's `add_cvar`, in gs-combat's duck-typed shape, and reads back a value set before it ran (argv, the deploy's `content.yml`). **Off is enforced on the router**: a client told voice is off stops capturing and hides its key, but a modified client keeps sending, and only the relay can make "off" mean off. A refused frame is counted (`refused_disabled`) and the speaker is not told, as with a mute. Registered with gs-server's `FLAG_REPLICATED`, the value reaches every client's `GSClientLink`, and `GSVoiceManager.follow_cvars(link)` turns it into `server_enabled` and `server_enabled_changed`.
 
 **The game's channel is the router's, not the packet's.** `default_channel` is what every packet is relayed on, and the mode overrides it. The packet's channel field is written by the client, so a team-only game that trusted it was team-only for every player who did not change one byte; `honour_packet_channel` is for a game that gives players a team key and an all key.
 
@@ -99,7 +99,7 @@ A client asking another client not to play a muted player is not muting anybody,
 
 **Nothing opens a microphone on its own**: not on ready, not because an exported default was true. `start_capture()` is an explicit call the host makes after the player has agreed, and it returns a `GSResult` the host can show. A game that records people because a node entered the tree records people who did not ask.
 
-**The first press of the talk key is the agreement.** A client calls `GSVoiceManager.update_talk(held)` every frame (`is_talk_held()` reads the `dot_voice_talk` action, V when nothing bound it); the first press opens the microphone and later presses gate it. In a browser that is also when the permission prompt appears, attached to the key the player just pressed rather than to a page load, and a key press is the user gesture a browser wants before it starts audio. Open-mic mode (`set_open_mic`) opens on the same first press and then stays open. A refusal is returned on the first frame of a press and not on the rest of it. The microphone stays open once opened: reopening it per press costs the driver's start-up on every word.
+**The first press of the talk key is the agreement.** A client calls `GSVoiceManager.update_talk(held)` every frame (`is_talk_held()` reads the `gs_voice_talk` action, V when nothing bound it); the first press opens the microphone and later presses gate it. In a browser that is also when the permission prompt appears, attached to the key the player just pressed rather than to a page load, and a key press is the user gesture a browser wants before it starts audio. Open-mic mode (`set_open_mic`) opens on the same first press and then stays open. A refusal is returned on the first frame of a press and not on the rest of it. The microphone stays open once opened: reopening it per press costs the driver's start-up on every word.
 
 ## Deliberately not here
 

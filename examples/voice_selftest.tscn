@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://dotvoice0selftest"]
+[gd_scene load_steps=2 format=3 uid="uid://gsvoice0selftest"]
 
 [ext_resource type="Script" path="res://examples/voice_selftest.gd" id="1_vs"]
 

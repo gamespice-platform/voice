@@ -17,7 +17,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-voice self-test")
+	print("gs-voice self-test")
 
 	_test_config()
 	_test_codec_round_trip()

@@ -5,7 +5,7 @@ Voice chat for Godot 4: microphone capture with push-to-talk or voice activation
 ## Install
 
 1. Get [Godot 4.7](https://godotengine.org/download).
-2. Either use [GameSpice Bootstrap](https://github.com/gamespice-platform/bootstrap), which clones every project and links the addons, or copy `addons/dot_voice/` and [GameSpice Core](https://github.com/gamespice-platform/core)'s `addons/dot_core/` into your project and enable dot-voice in *Project > Project Settings > Plugins*.
+2. Either use [GameSpice Bootstrap](https://github.com/gamespice-platform/bootstrap), which clones every project and links the addons, or copy `addons/gs_voice/` and [GameSpice Core](https://github.com/gamespice-platform/core)'s `addons/gs_core/` into your project and enable gs-voice in *Project > Project Settings > Plugins*.
 3. Set `audio/driver/enable_input=true` in your project settings.
 
 GameSpice Core is the only dependency. [GameSpice Moderation](https://github.com/gamespice-platform/moderation) and [GameSpice Server](https://github.com/gamespice-platform/server) work with it and neither is imported.
@@ -56,7 +56,7 @@ GameSpice Core is the only dependency. [GameSpice Moderation](https://github.com
 | Where audio goes | A `GSVoiceSink` subclass, or `GSVoiceManager.sink_factory` |
 | The codec | A `GSVoiceCodec` subclass plus `GSVoiceCodec.register` |
 | Who hears whom | `GSVoiceRouter.team_fn`, `position_fn`, `can_hear_fn`, `listener_filter` |
-| Who may be heard at all | Anything with `is_voice_muted(peer)` registered as `dot_mute_source` |
+| Who may be heard at all | Anything with `is_voice_muted(peer)` registered as `gs_mute_source` |
 
 ## Not included
 

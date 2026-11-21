@@ -5,11 +5,11 @@ extends EditorPlugin
 ##
 ## No autoloads: a listen server runs a capture and a playback per remote speaker in one process.
 
-const _ICON := "res://addons/dot_voice/icon_placeholder.svg"
+const _ICON := "res://addons/gs_voice/icon_placeholder.svg"
 
 const _TYPES := [
-	["GSVoiceManager", "Node", "res://addons/dot_voice/runtime/dot_voice_manager.gd"],
-	["GSVoiceRouter", "Node", "res://addons/dot_voice/runtime/dot_voice_router.gd"],
+	["GSVoiceManager", "Node", "res://addons/gs_voice/runtime/gs_voice_manager.gd"],
+	["GSVoiceRouter", "Node", "res://addons/gs_voice/runtime/gs_voice_router.gd"],
 ]
 
 

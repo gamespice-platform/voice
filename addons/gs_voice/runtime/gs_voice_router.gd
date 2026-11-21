@@ -7,10 +7,10 @@ extends Node
 ## Mute is checked before relaying (distinct from [member GSVoiceManager.local_mutes], a preference), the rate limit stops voice being a bandwidth amplifier, and the speaker id is stamped from the transport's sender so nobody can impersonate. Muting is duck-typed through [GSRegistry] ([code]is_voice_muted(speaker) -> bool[/code]), so no GameSpice Server or GameSpice Moderation dependency.
 
 const CHANNEL := "voice.router"
-const SERVICE := &"dot_voice_router"
+const SERVICE := &"gs_voice_router"
 
-## Registry name of whatever decides mutes. dot-moderation publishes this.
-const MUTE_SERVICE := &"dot_mute_source"
+## Registry name of whatever decides mutes. gs-moderation publishes this.
+const MUTE_SERVICE := &"gs_mute_source"
 
 ## How far a packet travels.
 enum Channel {
@@ -126,7 +126,7 @@ var position_fn: Callable = Callable()
 
 ## Whether a listener inside [member proximity_range] can hear the speaker, for [constant Channel.PROXIMITY]; optional:
 ## [code]func(listener: int, speaker: int, listener_at: Vector3, speaker_at: Vector3) -> bool[/code].
-## A range is not a room and this addon knows no level, so the host is asked after the distance test, with the same signature as dot-chat's router. Unset, range decides.
+## A range is not a room and this addon knows no level, so the host is asked after the distance test, with the same signature as gs-chat's router. Unset, range decides.
 var can_hear_fn: Callable = Callable()
 
 ## Returns the listeners a [constant Channel.CUSTOM] packet goes to. Optional.
@@ -185,7 +185,7 @@ func remove_peer(peer_id: int) -> void:
 
 ## Mutes a speaker on this server, when no moderation addon is installed.
 ##
-## A fallback: it is gone on reconnect. A deployment wanting a lasting mute registers a [code]dot_mute_source[/code] (GameSpice Moderation is one).
+## A fallback: it is gone on reconnect. A deployment wanting a lasting mute registers a [code]gs_mute_source[/code] (GameSpice Moderation is one).
 func set_muted(speaker: int, muted: bool) -> void:
 	if muted:
 		_muted[speaker] = true

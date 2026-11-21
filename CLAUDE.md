@@ -4,7 +4,7 @@ Voice chat for Godot 4: capture, two codecs, a jitter buffer, and a server-side 
 
 Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is specific to voice.
 
-**The distributable is `addons/dot_voice/`.** It requires [GameSpice Core](../dot-core) and nothing else. dot-moderation and dot-server are optional, and neither is named by any class in the source (mutes arrive through the `dot_mute_source` registry name).
+**The distributable is `addons/gs_voice/`.** It requires [GameSpice Core](../gs-core) and nothing else. gs-moderation and gs-server are optional, and neither is named by any class in the source (mutes arrive through the `gs_mute_source` registry name).
 
 ## Read before
 
@@ -20,16 +20,16 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is sp
 | `capture/` | `GSVoiceSource` and its microphone and buffer sources; `GSVoiceGate` |
 | `playback/` | `GSVoiceSink` (player, buffer), `GSVoiceJitter` |
 | `codec/` | `GSVoiceCodec` registry, `pcm16`, `adpcm` (the default) |
-| `wire/dot_voice_packet.gd` | `GSVoicePacket`: version 2, `OFFSET_*`, `sequence_delta` |
-| `runtime/dot_voice_router.gd` | `GSVoiceRouter`: the server side; channels, mutes, rate limit, `team_fn`, `position_fn`, `can_hear_fn` |
-| `runtime/dot_voice_proximity.gd`, `runtime/dot_voice_look_mute.gd` | `GSVoiceProximity`: falloff curves and a ray occluder; `GSVoiceLookMute`: look at a player, tap gags, double-tap mutes, rebindable (`voice_gag`, `voice_mute`) |
-| `runtime/dot_voice_manager.gd` | `GSVoiceManager`: the client side; `start_capture()`, playback, `local_mutes` |
-| `dot_voice_config.gd` | `GSVoiceConfig`: sample rate, frame length, codec, `format_fingerprint()`, `frame_samples()` |
+| `wire/gs_voice_packet.gd` | `GSVoicePacket`: version 2, `OFFSET_*`, `sequence_delta` |
+| `runtime/gs_voice_router.gd` | `GSVoiceRouter`: the server side; channels, mutes, rate limit, `team_fn`, `position_fn`, `can_hear_fn` |
+| `runtime/gs_voice_proximity.gd`, `runtime/gs_voice_look_mute.gd` | `GSVoiceProximity`: falloff curves and a ray occluder; `GSVoiceLookMute`: look at a player, tap gags, double-tap mutes, rebindable (`voice_gag`, `voice_mute`) |
+| `runtime/gs_voice_manager.gd` | `GSVoiceManager`: the client side; `start_capture()`, playback, `local_mutes` |
+| `gs_voice_config.gd` | `GSVoiceConfig`: sample rate, frame length, codec, `format_fingerprint()`, `frame_samples()` |
 | `examples/voice_selftest.tscn` | the suite, no audio device needed |
 | `examples/voice_device_probe.tscn`, `tools/voice_device_probe.sh` | the capture bus and the player sink on a real device, under Xvfb |
 | `examples/web_voice_probe.tscn`, `examples/web_voice_server.gd`, `tools/web_voice_check.mjs` | voice in a real browser: export, fake microphone, Playwright |
 
-Paths except `examples/` are in `addons/dot_voice/`.
+Paths except `examples/` are in `addons/gs_voice/`.
 
 ## Running and testing
 
@@ -44,7 +44,7 @@ The family's two steps ([family CLAUDE.md](../../CLAUDE.md#validating-anything))
 - The jitter buffer starts on `target_frames`, continues on one, drops the oldest past `max_frames`, fades gaps, and resets on a talk spurt. [design](docs/design.md#the-jitter-buffer-is-where-voice-is-won-or-lost)
 - Playback runs on a real-time accumulator, never the frame rate. [design](docs/design.md#the-jitter-buffer-is-where-voice-is-won-or-lost)
 - The router stamps the speaker from the transport, checks mute before relaying without telling the speaker, rate-limits, never sends back to the speaker, and a team channel with no `team_fn` reaches nobody. [design](docs/design.md#what-the-server-decides-and-why-it-has-to-be-the-server)
-- `can_hear_fn` keeps dot-chat's signature so one function answers both. [design](docs/design.md#what-the-server-decides-and-why-it-has-to-be-the-server)
+- `can_hear_fn` keeps gs-chat's signature so one function answers both. [design](docs/design.md#what-the-server-decides-and-why-it-has-to-be-the-server)
 - A moderator's mute (router, server) and `local_mutes` (listener) are different features. [design](docs/design.md#what-the-server-decides-and-why-it-has-to-be-the-server)
 - Nothing opens a microphone except an explicit `start_capture()` after the player agreed; a client calls `update_talk(held)` every frame and the first press is that agreement (and the browser's user gesture). [design](docs/design.md#privacy)
 - A project that wants a microphone sets `audio/driver/enable_input=true`; for a delivered game it is the client shell's setting that counts. [design](docs/design.md#the-device-layer-and-the-browser)

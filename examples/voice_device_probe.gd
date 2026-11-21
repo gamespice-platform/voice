@@ -23,7 +23,7 @@ func _check(ok: bool, what: String) -> void:
 
 func _run() -> void:
 	var driver := AudioServer.get_driver_name()
-	print("dot-voice device probe  driver=%s  mix_rate=%d" % [driver, int(AudioServer.get_mix_rate())])
+	print("gs-voice device probe  driver=%s  mix_rate=%d" % [driver, int(AudioServer.get_mix_rate())])
 	if driver == "Dummy":
 		print("no audio device: run this through tools/voice_device_probe.sh (xvfb-run), not --headless")
 		get_tree().quit(2)

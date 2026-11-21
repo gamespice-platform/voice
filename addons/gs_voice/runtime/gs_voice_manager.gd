@@ -7,15 +7,15 @@ extends Node
 ## Nothing opens a microphone on its own: the host calls [method start_capture] after the player agrees, and it returns a failure the host can show. Capture is polled from [code]_process[/code], not a thread: the browser has none, and it is one codec call per frame.
 
 const CHANNEL := "voice"
-const SERVICE := &"dot_voice_manager"
+const SERVICE := &"gs_voice_manager"
 
 ## Registry name of the manager that is this process's own player's voice, for a settings menu's voice rows.
 ## Not [constant SERVICE]: a suite with a server and two clients holds several managers. Published with [method publish_as_client].
-const CLIENT_SERVICE := &"dot_voice_client"
+const CLIENT_SERVICE := &"gs_voice_client"
 
 ## The InputMap action held to talk. GameSpice Menu's key table stores it as `bind_voice_talk`;
 ## [method ensure_talk_action] creates it on [constant DEFAULT_TALK_KEY] when nothing has.
-const TALK_ACTION := &"dot_voice_talk"
+const TALK_ACTION := &"gs_voice_talk"
 
 ## The key the talk action is created on: V, the genre's, by physical position.
 const DEFAULT_TALK_KEY := KEY_V
@@ -46,7 +46,7 @@ signal server_enabled_changed(enabled: bool)
 @export var config: GSVoiceConfig = null
 
 ## Path to a JSON config file layered over [member config]'s defaults.
-@export var config_file: String = "user://dot_voice.json"
+@export var config_file: String = "user://gs_voice.json"
 
 @export_group("Service")
 
@@ -332,9 +332,9 @@ func set_server_enabled(on: bool) -> void:
 	server_enabled_changed.emit(on)
 
 
-## Keeps [member server_enabled] on the server's [code]sv_voice_enable[/code] as [param source] reports it: dot-server's [code]GSClientLink[/code] or anything with [code]replicated_cvar(name, fallback)[/code] and a [code]replicated_cvar_changed[/code] signal. True when following.
+## Keeps [member server_enabled] on the server's [code]sv_voice_enable[/code] as [param source] reports it: gs-server's [code]GSClientLink[/code] or anything with [code]replicated_cvar(name, fallback)[/code] and a [code]replicated_cvar_changed[/code] signal. True when following.
 ##
-## A null source waits for the shell's link ([code]dot_client_link[/code] in the registry) and follows it once registered; returns false then.
+## A null source waits for the shell's link ([code]gs_client_link[/code] in the registry) and follows it once registered; returns false then.
 func follow_cvars(source: Object) -> bool:
 	if source == null or not is_instance_valid(source):
 		var bus := GSRegistry.signals()
@@ -354,7 +354,7 @@ func follow_cvars(source: Object) -> bool:
 
 
 ## Registry name of the shell's client link, which carries the server's replicated cvars.
-const LINK_SERVICE := &"dot_client_link"
+const LINK_SERVICE := &"gs_client_link"
 
 
 func _on_service_registered(service: StringName, instance: Object) -> void:

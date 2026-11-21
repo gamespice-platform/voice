@@ -2,10 +2,10 @@
 .godot/
 /android/
 
-# dot-core is a separate repository. For local development, symlink it:
-#   ln -s ../../dot-core/addons/dot_core addons/dot_core
+# gs-core is a separate repository. For local development, symlink it:
+#   ln -s ../../gs-core/addons/gs_core addons/gs_core
 # Consumers copy both addons into their own project.
-/addons/dot_core
+/addons/gs_core
 
 # Exports
 build/

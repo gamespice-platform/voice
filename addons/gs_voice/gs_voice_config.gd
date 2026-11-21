@@ -79,7 +79,7 @@ var sample_rate: int = 24000
 
 
 func env_prefix() -> String:
-	return "DOT_VOICE_"
+	return "GS_VOICE_"
 
 
 func cli_prefix() -> String:
