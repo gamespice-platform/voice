@@ -2,6 +2,8 @@
 
 Voice chat for Godot 4: microphone capture with push-to-talk or voice activation, a pluggable codec, one jitter buffer per speaker, and routing to everybody, to a team, or to whoever is close enough. The server decides who is heard.
 
+A GameSpice addon under the MIT licence, built with Claude Code, with a headless suite in `examples/voice_selftest.tscn`. The games in [Zee's Games](https://zeesgames.com) are built on GameSpice addons and run on live servers, so voice routing here has carried real matches. Bug reports go to the [issue tracker](https://github.com/gamespice-platform/voice/issues).
+
 ## Install
 
 1. Get [Godot 4.7](https://godotengine.org/download).
@@ -70,8 +72,27 @@ GameSpice Core is the only dependency. [GameSpice Moderation](https://github.com
 
 Link GameSpice Core into `addons/`, import the project once, then run `examples/voice_selftest.tscn` headless with Godot. `tools/voice_device_probe.sh` tests a real audio device under Xvfb, and `tools/web_voice_check.mjs` runs a real browser with a fake microphone.
 
-## Status and licence
+## Used by
 
-Part of the [**GameSpice**](https://gamespice.net) platform: a family of Godot addons. Written with Claude Code and maintained by `gamemann`. Every addon has headless tests, but little of this has been played by real users yet, so expect rough edges and please [open an issue](https://github.com/gamespice-platform/voice/issues) when you hit one.
+All of these games from Zee's Games vendor this addon:
+
+- [Fatal Contact](https://zeesgames.com/fatal-contact)
+- [Airdrift](https://zeesgames.com/airdrift)
+- [Playlot](https://zeesgames.com/playlot)
+- [Hungario](https://zeesgames.com/hungario)
+- [Buses From Hell](https://zeesgames.com/buses-from-hell)
+- [Smash Copter](https://zeesgames.com/smash-copter)
+- [Zombie Zone](https://zeesgames.com/zombie-zone)
+- [Hide n Seek](https://zeesgames.com/hide-n-seek)
+- [Prop Hunt](https://zeesgames.com/prop-hunt)
+- [Murder Mystery](https://zeesgames.com/murder-mystery)
+- [Deathrun](https://zeesgames.com/deathrun)
+- [Wipeout](https://zeesgames.com/wipeout)
+- [Dangerous Delivery](https://zeesgames.com/dangerous-delivery)
+- [Look At Me](https://zeesgames.com/look-at-me)
+
+The whole collection is at [zeesgames.com](https://zeesgames.com).
+
+## Licence
 
 MIT licence, see [LICENSE](LICENSE). The only closed part of the [**GameSpice**](https://gamespice.net) platform is the web back end; you can use your own instead of GameSpice's.
